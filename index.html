@@ -18,8 +18,6 @@
             --text-main: #ff1493;
             --text-alt: #ff8c42;
             --border: rgba(255, 20, 147, 0.3);
-            --glow-primary: rgba(255, 20, 147, 0.55);
-            --glow-secondary: rgba(255, 140, 66, 0.45);
             --font-main: 'Segoe UI', 'Noto Sans', 'Noto Sans SC', system-ui, sans-serif;
             --font-mono: 'Courier New', 'JetBrains Mono', monospace;
             --safe-top: env(safe-area-inset-top);
@@ -200,6 +198,44 @@
         .reset-btn:active { border-color:var(--secondary); color:var(--secondary); background:rgba(255,140,66,0.2); transform:scale(0.95); }
 
         /* -------------------------------------------------------------------- *
+         * FACE RECOGNITION OVERLAY (Z-INDEX: 100)                               *
+         * -------------------------------------------------------------------- */
+        .face-rec {
+            position:fixed; top:calc(var(--safe-top) + 1.5rem); right:1rem; z-index:150;
+            background:rgba(10,10,15,0.65); backdrop-filter:blur(12px);
+            border:1px solid rgba(255,140,180,0.25);
+            border-radius:1rem; padding: 1rem;
+            max-width: 260px;
+            color: #fff;
+            pointer-events:auto; /* Allows interactions inside if needed */
+            font-family:var(--font-mono);
+            box-shadow: 0 0 20px rgba(255,140,180,0.2);
+            opacity: 0.9;
+            transition: opacity 0.3s ease;
+        }
+        .face-rec:hover { opacity:1; border-color:rgba(255,140,66,0.5); }
+        .face-rec .title {
+            font-size: 0.55rem; letter-spacing:0.15em; color:var(--secondary); margin-bottom: 0.6rem;
+            display:flex; justify-content:space-between; align-items:center;
+        }
+        .face-rec .status-dot {
+            width:8px; height:8px; background:#ff1493; border-radius:50%; animation: blinkStatus 1.5s infinite;
+            box-shadow: 0 0 8px #ff1493;
+        }
+        @keyframes blinkStatus { 0%, 100% { opacity:1; } 50% { opacity:0.3; } }
+
+        .face-rec .record {
+            margin-top: 0.7rem; padding-top: 0.7rem; border-top:1px solid rgba(255,255,255,0.08);
+            font-size: 0.45rem; line-height:1.5;
+        }
+        .face-rec .record .label { color:rgba(255,255,255,0.5); }
+        .face-rec .record .value { color:var(--primary); font-weight:600; }
+        .face-rec .encrypted { margin-top:0.5rem; font-size: 0.4rem; color:rgba(255,255,255,0.35); font-style:italic; }
+
+        /* Hidden by default initially */
+        .face-rec.hidden { opacity: 0; pointer-events: none; }
+
+        /* -------------------------------------------------------------------- *
          * CHOICE OVERLAY (Modal on last slide)                                 *
          * -------------------------------------------------------------------- */
         .choice-overlay {
@@ -267,6 +303,20 @@
             <p>Permita o acesso à câmera (traseira/environment) para iniciar o protocolo.</p>
             <button id="retryCameraBtn">TENTAR NOVAMENTE</button>
         </div>
+    </div>
+
+    <!-- FACE RECOGNITION PANEL -->
+    <div class="face-rec hidden" id="faceRecPanel" aria-label="Painel de Reconhecimento Facial">
+        <div class="title">
+            <span>FACE DETECTADA</span>
+            <span class="status-dot"></span>
+        </div>
+        <div class="record">
+            <div><span class="label">Usuário:</span> <span class="value" id="recName">••••••</span></div>
+            <div><span class="label">Idade:</span> <span class="value" id="recAge">—</span></div>
+            <div><span class="label">Timestamp:</span> <span class="value" id="recTS">—</span></div>
+        </div>
+        <div class="encrypted" id="recHash">Hash Criptografado: ---</div>
     </div>
 
     <!-- FEED CONTAINER (Z-INDEX: 10) -->
@@ -377,11 +427,14 @@
                         audio: false 
                     });
                     camVideo.srcObject = stream; camVideo.classList.remove('hidden'); camError.classList.remove('visible');
+                    // Start simulated recognition after camera is ready
+                    startSimulatedRecognition();
                 } catch (e) {
                     console.warn('Back camera failed, trying any camera', e);
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                         camVideo.srcObject = stream; camVideo.classList.remove('hidden'); camError.classList.remove('visible');
+                        startSimulatedRecognition();
                     } catch(e2) { camError.classList.add('visible'); camVideo.classList.add('hidden'); }
                 }
             }
@@ -444,7 +497,6 @@
 
             // ---------- DOM REFERENCES ----------
             const feed = document.getElementById('feed');
-            const glyphEl = null; // Will be per slide
             const otarioFormula = document.getElementById('otarioFormula');
             const frameworkTag = document.getElementById('frameworkTag');
             const progressTrack = document.getElementById('progressTrack');
@@ -453,6 +505,12 @@
             const choiceButtons = document.getElementById('choiceButtons');
             const revealFlash = document.getElementById('revealFlash');
             
+            const facePanel = document.getElementById('faceRecPanel');
+            const faceName = document.getElementById('recName');
+            const faceAge = document.getElementById('recAge');
+            const faceTS = document.getElementById('recTS');
+            const faceHash = document.getElementById('recHash');
+
             let currentStep = 0;
             let showingChoice = false;
             let choiceLocked = false;
@@ -460,6 +518,63 @@
             let isScrolling = false;
             let observer = null;
             let slides = []; // Array of {el, stepData, glyphEl, wordEl, oracleEl}
+
+            // ---------- FACE RECOGNITION SIMULATION ----------
+            let recognitionInterval = null;
+            const NAMES = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry'];
+            const AGES = ['24', '27', '31', '38', '45', '52', '60', '19'];
+            
+            function generateSimpleHash(str) {
+                let hash = 0; for (let i = 0; i < str.length; i++) {
+                    const c = str.charCodeAt(i); hash = ((hash << 5) - hash) + c; hash = hash & hash;
+                }
+                // Convert to hex string (simulating encryption)
+                const hex = Math.abs(hash).toString(16).padStart(8, '0');
+                return `0x${hex}`;
+            }
+
+            function simulateRecognition() {
+                // Randomly decide to trigger a detection
+                if (Math.random() < 0.1) { // 10% chance every tick
+                    const name = NAMES[Math.floor(Math.random() * NAMES.length)];
+                    const age = AGES[Math.floor(Math.random() * AGES.length)];
+                    const ts = new Date().toLocaleTimeString('pt-BR');
+                    const rawData = `${name}-${age}-${ts}`;
+                    const hashed = generateSimpleHash(rawData);
+                    
+                    faceName.textContent = name;
+                    faceAge.textContent = age;
+                    faceTS.textContent = ts;
+                    faceHash.textContent = `Hash Criptografado: ${hashed}`;
+
+                    facePanel.classList.remove('hidden');
+                    
+                    // Flash panel briefly
+                    playSFX(); 
+                    triggerGlitch();
+
+                    // Hide panel after 2.5 seconds
+                    setTimeout(() => facePanel.classList.add('hidden'), 2500);
+                }
+            }
+
+            function startSimulatedRecognition() {
+                // Remove any previous interval
+                if (recognitionInterval) clearInterval(recognitionInterval);
+                // Start simulation with a slight delay
+                recognitionInterval = setInterval(simulateRecognition, 800);
+            }
+
+            // Prevent interference with camera pause
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    // Pause simulation when page is hidden to save resources
+                    if (recognitionInterval) clearInterval(recognitionInterval);
+                } else {
+                    // Resume if camera is still active (simplified: always resume if init was called)
+                    startSimulatedRecognition();
+                }
+            });
 
             // ---------- RENDER FEED ----------
             function buildFeed() {
@@ -632,7 +747,7 @@
             feed.addEventListener('click', (e) => {
                 if (showingChoice) return;
                 // Check if click is on UI chrome
-                if (e.target.closest('.ui-chrome') || e.target.closest('.choice-overlay')) return;
+                if (e.target.closest('.ui-chrome') || e.target.closest('.choice-overlay') || e.target.closest('.face-rec')) return;
                 
                 // Only advance if clicking the currently active slide area roughly
                 const activeSlide = slides[currentStep].el;
