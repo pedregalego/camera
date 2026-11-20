@@ -1,453 +1,549 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>O MALUCO DO CHAPEU · CAMERA CYBER-IGARASSU</title>
-  <style>
-    /* estilo grego + cyberpunk igarassuano */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>O MALUCO DO CHAPEU · HUD CAM</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; user-select:none; -webkit-tap-highlight-color:transparent; }
+  html, body {
+    height:100%; background:#0a0a0c; overflow:hidden;
+    font-family: 'Arial Black', 'Impact', 'Segoe UI Black', sans-serif;
+  }
 
-    body {
-      background: #0a0f1e;
-      font-family: 'Segoe UI', 'Roboto', system-ui, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      overflow: hidden;
-      padding: 8px;
-    }
+  /* ===== CONTAINER ===== */
+  .stage {
+    position:relative; width:100vw; height:100vh; height:100dvh;
+    background:#000; overflow:hidden;
+  }
+  #video {
+    position:absolute; inset:0; width:100%; height:100%;
+    object-fit:cover; z-index:1;
+    filter: contrast(1.05) saturate(1.05);
+  }
 
-    /* container principal com borda grega e neon */
-    .camera-container {
-      position: relative;
-      width: 100%;
-      max-width: 420px;
-      aspect-ratio: 9 / 16;
-      background: #000;
-      border-radius: 32px;
-      overflow: hidden;
-      box-shadow: 0 0 0 4px #1e2a3a, 0 0 0 8px #00c8ff33, 0 0 30px #00c8ff, 0 0 60px #b200ff;
-      border: 2px solid #8a2be2;
-      transition: box-shadow 0.2s;
-    }
+  /* ===== HUD GTA ===== */
+  .hud { position:absolute; inset:0; z-index:10; pointer-events:none; }
 
-    /* efeito de colunas gregas (cyber) */
-    .camera-container::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: repeating-linear-gradient(
-        90deg,
-        transparent 0px,
-        transparent 16px,
-        rgba(0, 200, 255, 0.06) 16px,
-        rgba(0, 200, 255, 0.06) 20px
-      );
-      pointer-events: none;
-      z-index: 2;
-    }
+  /* Barra superior tipo GTA (canto com nome do jogo) */
+  .hud-top {
+    position:absolute; top:0; left:0; right:0;
+    padding:14px 16px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .game-badge {
+    background:#000;
+    border:2px solid #ffd400;
+    border-radius:2px;
+    padding:6px 12px 5px;
+    color:#ffd400;
+    font-size:11px; letter-spacing:2px;
+    text-transform:uppercase;
+    box-shadow: 0 0 0 2px #000, 3px 3px 0 #000;
+  }
+  .game-badge b { color:#fff; }
+  .rec-dot {
+    display:flex; align-items:center; gap:6px;
+    background:#000c;
+    padding:5px 10px; border-radius:2px;
+    color:#fff; font-size:11px; letter-spacing:2px;
+    border-left:3px solid #ff2d2d;
+  }
+  .rec-dot::before {
+    content:""; width:8px; height:8px; border-radius:50%;
+    background:#ff2d2d; box-shadow:0 0 8px #ff2d2d;
+    animation: blink 1.2s infinite;
+  }
+  @keyframes blink { 50% { opacity:0.2; } }
 
-    /* video da câmera */
-    #video {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      z-index: 1;
-      filter: contrast(1.1) saturate(1.2);
-    }
+  /* Moldura de mira (cantos) estilo GTA */
+  .reticle {
+    position:absolute; inset:auto;
+    top:50%; left:50%; transform:translate(-50%,-50%);
+    width:70px; height:70px;
+    opacity:0.55;
+  }
+  .reticle::before, .reticle::after,
+  .reticle span::before, .reticle span::after {
+    content:""; position:absolute; width:16px; height:16px;
+    border-color:#fff; border-style:solid; border-width:0;
+    filter: drop-shadow(0 0 3px #000);
+  }
+  .reticle::before { top:0; left:0; border-top-width:3px; border-left-width:3px; }
+  .reticle::after  { top:0; right:0; border-top-width:3px; border-right-width:3px; }
+  .reticle span::before { bottom:0; left:0; border-bottom-width:3px; border-left-width:3px; }
+  .reticle span::after  { bottom:0; right:0; border-bottom-width:3px; border-right-width:3px; }
 
-    /* overlay com legendas e mensagem */
-    .overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 24px 16px;
-      z-index: 10;
-      pointer-events: none;
-    }
+  /* Legenda inferior HUD estilo GTA (faixa preta) */
+  .hud-subtitle {
+    position:absolute; left:0; right:0; bottom:150px;
+    display:flex; justify-content:center;
+    padding:0 12px;
+  }
+  .subtitle-box {
+    background:#000;
+    border-top:2px solid #ffd400;
+    border-bottom:2px solid #ffd400;
+    color:#fff;
+    font-family:'Arial', sans-serif;
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:0.5px;
+    padding:8px 14px;
+    text-align:center;
+    max-width:92%;
+    box-shadow:0 0 0 2px #000;
+  }
+  .subtitle-box .name { color:#ffd400; }
 
-    .overlay * {
-      pointer-events: none;
-    }
+  /* MENSAGEM DE PONTOS (aparece ao clicar) — estilo GTA notification */
+  .score-toast {
+    position:absolute; top:36%; left:50%;
+    transform:translate(-50%,-50%) scale(0.85);
+    background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
+    border:3px solid #ffd400;
+    border-radius:3px;
+    padding:16px 20px 14px;
+    min-width:260px; max-width:88vw;
+    text-align:center;
+    opacity:0; visibility:hidden;
+    transition: opacity .2s, transform .2s;
+    box-shadow: 0 0 0 3px #000, 0 12px 30px #000a;
+    z-index:30;
+  }
+  .score-toast.show {
+    opacity:1; visibility:visible;
+    transform:translate(-50%,-50%) scale(1);
+  }
+  .score-toast .pts {
+    font-family:'Impact','Arial Black',sans-serif;
+    font-size:38px;
+    color:#ffd400;
+    line-height:0.95;
+    letter-spacing:1px;
+    text-shadow: 2px 2px 0 #000;
+    margin-bottom:4px;
+  }
+  .score-toast .pts small {
+    display:block; font-size:13px; letter-spacing:3px;
+    color:#fff; font-family:'Arial',sans-serif; font-weight:700;
+    margin-top:2px;
+  }
+  .score-toast .reason {
+    color:#cfcfcf;
+    font-family:'Arial',sans-serif;
+    font-weight:700;
+    font-size:12px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    line-height:1.35;
+    margin-top:8px;
+    padding-top:8px;
+    border-top:1px dashed #444;
+  }
+  .score-toast .reason b { color:#00e0ff; }
+  .score-toast .hermes {
+    margin-top:8px;
+    font-family:'Arial',sans-serif;
+    font-weight:900;
+    font-size:11px;
+    letter-spacing:3px;
+    color:#7cffb2;
+  }
 
-    /* legenda superior estilo grego */
-    .top-tag {
-      background: rgba(10, 15, 30, 0.7);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      border-left: 6px solid #00e0ff;
-      border-radius: 0 24px 24px 0;
-      padding: 10px 22px 10px 18px;
-      align-self: flex-start;
-      color: #d4f2ff;
-      font-weight: 800;
-      letter-spacing: 3px;
-      font-size: 14px;
-      text-transform: uppercase;
-      text-shadow: 0 0 12px #00c8ff, 0 0 4px #000;
-      box-shadow: 0 0 18px #00c8ff77;
-      margin-left: -16px;
-    }
+  /* ===== BOTÕES HUD ===== */
+  .hud-actions {
+    position:absolute; left:0; right:0; bottom:0;
+    padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));
+    display:flex; flex-direction:column; gap:10px;
+    pointer-events:none;
+  }
+  .action-row {
+    display:flex; gap:10px; width:100%;
+  }
 
-    .top-tag span {
-      color: #ffd966;
-      text-shadow: 0 0 10px #ffaa00;
-    }
+  /* Botão principal - CAPTURAR */
+  .btn-capture {
+    pointer-events:auto;
+    flex:1;
+    background: linear-gradient(180deg, #ffd400 0%, #f0b800 100%);
+    color:#000;
+    font-family:'Impact','Arial Black',sans-serif;
+    font-size:22px;
+    letter-spacing:2px;
+    padding:16px 10px;
+    border:3px solid #000;
+    border-radius:3px;
+    box-shadow: 0 5px 0 #8a6400, 0 0 0 3px #000;
+    cursor:pointer;
+    text-transform:uppercase;
+    transition: transform .05s, box-shadow .05s;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-capture:active {
+    transform:translateY(5px);
+    box-shadow: 0 0 0 #8a6400, 0 0 0 3px #000;
+  }
+  .btn-capture .cam-icon { font-size:24px; }
 
-    /* mensagem grande (VOCE GANHOU...) */
-    .message-box {
-      background: rgba(5, 8, 16, 0.7);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border: 2px solid #c084fc;
-      border-radius: 20px 0 20px 0;
-      padding: 18px 18px 18px 22px;
-      margin: 0 auto;
-      width: fit-content;
-      max-width: 95%;
-      transform: skewX(-2deg);
-      box-shadow: 0 0 30px #b200ff99, inset 0 0 20px #8a2be266;
-      transition: opacity 0.3s, transform 0.2s;
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
+  /* Botões secundários (aparecem após foto) */
+  .action-row.secondary {
+    opacity:0; visibility:hidden;
+    transform: translateY(8px);
+    transition: opacity .2s, transform .2s, visibility .2s;
+    pointer-events:none;
+  }
+  .action-row.secondary.show {
+    opacity:1; visibility:visible;
+    transform: translateY(0);
+    pointer-events:auto;
+  }
+  .btn-secondary {
+    flex:1;
+    pointer-events:auto;
+    font-family:'Arial Black',sans-serif;
+    font-size:13px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    padding:12px 8px;
+    border:3px solid #000;
+    border-radius:3px;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    transition: transform .05s;
+  }
+  .btn-secondary:active { transform:translateY(3px); }
+  .btn-share {
+    background: linear-gradient(180deg,#b5179e 0%,#7209b7 100%);
+    color:#fff;
+    box-shadow: 0 4px 0 #3a0a5c, 0 0 0 3px #000;
+  }
+  .btn-share:active { box-shadow: 0 0 0 #3a0a5c, 0 0 0 3px #000; }
+  .btn-download {
+    background: linear-gradient(180deg,#06d6a0 0%,#05916b 100%);
+    color:#001a12;
+    box-shadow: 0 4px 0 #023a2b, 0 0 0 3px #000;
+  }
+  .btn-download:active { box-shadow: 0 0 0 #023a2b, 0 0 0 3px #000; }
+  .btn-retake {
+    background: linear-gradient(180deg,#2b2b2b 0%,#111 100%);
+    color:#fff;
+    flex:0 0 auto;
+    padding:12px 16px;
+    box-shadow: 0 4px 0 #000, 0 0 0 3px #000;
+  }
 
-    .message-box.active {
-      opacity: 1;
-      visibility: visible;
-      pointer-events: none;
-      animation: glitchIn 0.25s ease-out;
-    }
+  /* Preview da foto capturada (aparece no lugar do vídeo) */
+  #snapshot {
+    position:absolute; inset:0; width:100%; height:100%;
+    object-fit:cover; z-index:5; display:none;
+  }
+  #snapshot.show { display:block; }
 
-    @keyframes glitchIn {
-      0% { transform: skewX(-2deg) scale(0.9); opacity: 0; }
-      50% { transform: skewX(-6deg) scale(1.02); opacity: 1; }
-      100% { transform: skewX(-2deg) scale(1); opacity: 1; }
-    }
+  /* Flash */
+  .flash {
+    position:absolute; inset:0; background:#fff;
+    opacity:0; pointer-events:none; z-index:80;
+  }
+  .flash.on { animation: flashAnim .18s ease-out; }
+  @keyframes flashAnim { 0%{opacity:.9;} 100%{opacity:0;} }
 
-    .message-text {
-      font-family: 'Impact', 'Arial Black', 'Segoe UI Black', sans-serif;
-      font-size: 26px;
-      line-height: 1.2;
-      font-weight: 900;
-      text-transform: uppercase;
-      color: #fff3c9;
-      text-shadow: 0 0 20px #00c8ff, 0 0 40px #b200ff, 2px 2px 0 #000;
-      letter-spacing: 2px;
-      text-align: center;
-      word-break: break-word;
-    }
+  /* Toast de feedback (baixando / compartilhando) */
+  .feedback {
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    background:#000e; color:#ffd400;
+    font-family:'Arial Black',sans-serif;
+    font-size:13px; letter-spacing:2px;
+    text-transform:uppercase;
+    padding:14px 22px;
+    border:2px solid #ffd400;
+    border-radius:3px;
+    z-index:90;
+    opacity:0; visibility:hidden;
+    transition:opacity .2s;
+    text-align:center;
+  }
+  .feedback.show { opacity:1; visibility:visible; }
 
-    .message-text small {
-      font-size: 18px;
-      display: block;
-      color: #aaf0ff;
-      text-shadow: 0 0 12px #00e0ff;
-      margin-top: 6px;
-      letter-spacing: 1px;
-    }
-
-    /* rodapé com botão de captura bem grande e fácil */
-    .bottom-bar {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      width: 100%;
-    }
-
-    /* botão estiloso (GTA/MMO) */
-    .capture-btn {
-      pointer-events: auto;
-      background: linear-gradient(145deg, #2a1a4a, #0d1b2a);
-      border: 3px solid #00e0ff;
-      border-radius: 60px;
-      color: white;
-      font-weight: 900;
-      font-size: 22px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      padding: 20px 32px;
-      width: 90%;
-      max-width: 300px;
-      box-shadow: 0 0 30px #00c8ff, 0 0 15px #b200ff inset, 0 8px 0 #0a0a14;
-      text-shadow: 0 0 12px #00c8ff, 0 2px 0 #000;
-      transition: all 0.06s linear;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      border-bottom: 6px solid #8a2be2;
-      transform: scale(1);
-      -webkit-backdrop-filter: blur(4px);
-      backdrop-filter: blur(4px);
-    }
-
-    .capture-btn:active {
-      transform: translateY(4px);
-      box-shadow: 0 0 40px #00e0ff, 0 0 20px #b200ff inset, 0 4px 0 #0a0a14;
-      border-bottom-width: 2px;
-    }
-
-    .capture-btn .icon {
-      font-size: 32px;
-      filter: drop-shadow(0 0 8px #fff);
-    }
-
-    /* texto inferior tipo "MALUCO" */
-    .brand {
-      font-size: 12px;
-      color: #8a9bb5;
-      letter-spacing: 6px;
-      text-transform: uppercase;
-      text-shadow: 0 0 10px #00c8ff;
-      font-weight: 600;
-      background: #00000066;
-      padding: 4px 14px;
-      border-radius: 30px;
-      backdrop-filter: blur(4px);
-      border: 1px solid #2a4a6a;
-    }
-
-    /* mensagem de feedback de captura */
-    .flash-effect {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: white;
-      opacity: 0;
-      pointer-events: none;
-      z-index: 99;
-    }
-
-    .flash-effect.flash {
-      animation: flashAnim 0.2s ease-out;
-    }
-
-    @keyframes flashAnim {
-      0% { opacity: 0.9; }
-      100% { opacity: 0; }
-    }
-
-    /* fallback se não tiver câmera */
-    .error-msg {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: #1a0f1f;
-      color: #ff99cc;
-      padding: 20px;
-      border-radius: 30px;
-      border: 2px solid #ff00aa;
-      font-weight: bold;
-      text-align: center;
-      z-index: 200;
-      width: 80%;
-    }
-
-    /* pequenos ajustes de responsividade */
-    @media (max-width: 380px) {
-      .message-text { font-size: 20px; }
-      .capture-btn { font-size: 18px; padding: 16px 20px; }
-    }
-  </style>
+  /* Erro de câmera */
+  .cam-error {
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    background:#000; color:#ff6b6b;
+    border:2px solid #ff2d2d;
+    padding:18px 20px; border-radius:4px;
+    font-family:'Arial',sans-serif; font-weight:700;
+    font-size:13px; text-align:center;
+    z-index:100; max-width:80vw;
+  }
+</style>
 </head>
 <body>
 
-<div class="camera-container" id="cameraContainer">
-  <!-- vídeo da câmera traseira -->
+<div class="stage" id="stage">
   <video id="video" autoplay playsinline muted></video>
+  <img id="snapshot" alt="snapshot" />
 
-  <!-- overlay com elementos gráficos e mensagem -->
-  <div class="overlay">
-    <div class="top-tag">
-      ⚡ <span>MALUCO DO CHAPEU</span> · CYBER-IGARASSU
+  <!-- HUD -->
+  <div class="hud">
+    <div class="hud-top">
+      <div class="game-badge"><b>O MALUCO</b> DO CHAPEU</div>
+      <div class="rec-dot">REC</div>
     </div>
 
-    <!-- MENSAGEM PRINCIPAL (VOCE GANHOU...) -->
-    <div class="message-box" id="messageBox">
-      <div class="message-text" id="messageText">
-        VOCÊ GANHOU 1 MILHÃO DE PONTOS POR CORRER QUE NEM UM ARROMBADO NO SOL
-        <small>VALEU HERMES</small>
+    <div class="reticle"><span></span></div>
+
+    <div class="hud-subtitle" id="subtitleBar">
+      <div class="subtitle-box" id="subtitleText">
+        <span class="name">HERMES:</span> manda a braba, maluco.
       </div>
     </div>
 
-    <div class="bottom-bar">
-      <!-- BOTÃO BEM GRANDE E FÁCIL -->
-      <button class="capture-btn" id="captureBtn">
-        <span class="icon">📸</span> TIRAR FOTO
-      </button>
-      <div class="brand">O MALUCO DO CHAPEU · GRÉCIA CYBER</div>
+    <div class="score-toast" id="scoreToast">
+      <div class="pts">+1.000.000<small>PONTOS</small></div>
+      <div class="reason" id="scoreReason">
+        POR CORRER QUE NEM UM ARROMBADO NO SOL
+      </div>
+      <div class="hermes">— VALEU HERMES —</div>
+    </div>
+
+    <div class="hud-actions">
+      <div class="action-row secondary" id="secondaryRow">
+        <button class="btn-secondary btn-share" id="btnShare">📲 STORIES</button>
+        <button class="btn-secondary btn-download" id="btnDownload">⬇ BAIXAR</button>
+        <button class="btn-secondary btn-retake" id="btnRetake">↺</button>
+      </div>
+      <div class="action-row">
+        <button class="btn-capture" id="btnCapture">
+          <span class="cam-icon">📸</span> CAPTURAR
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- flash de captura -->
-  <div class="flash-effect" id="flashEffect"></div>
+  <div class="flash" id="flash"></div>
+  <div class="feedback" id="feedback"></div>
 </div>
 
 <script>
-  (function() {
-    const video = document.getElementById('video');
-    const captureBtn = document.getElementById('captureBtn');
-    const messageBox = document.getElementById('messageBox');
-    const flashEffect = document.getElementById('flashEffect');
-    const cameraContainer = document.getElementById('cameraContainer');
+(function(){
+  const stage     = document.getElementById('stage');
+  const video     = document.getElementById('video');
+  const snapshot  = document.getElementById('snapshot');
+  const btnCapture= document.getElementById('btnCapture');
+  const btnShare  = document.getElementById('btnShare');
+  const btnDownload=document.getElementById('btnDownload');
+  const btnRetake = document.getElementById('btnRetake');
+  const secondary = document.getElementById('secondaryRow');
+  const scoreToast= document.getElementById('scoreToast');
+  const scoreReason=document.getElementById('scoreReason');
+  const subtitleText=document.getElementById('subtitleText');
+  const flash     = document.getElementById('flash');
+  const feedback  = document.getElementById('feedback');
 
-    // Variável para controlar se a mensagem está visível (evitar sobreposição de timers)
-    let messageTimer = null;
+  let stream = null;
+  let lastBlob = null;   // arquivo PNG da última foto
+  let lastDataURL = null;
+  let toastTimer = null;
+  let feedbackTimer = null;
+  let hasPhoto = false;
 
-    // Frases insanas (estilo GTA/MMO) — a principal já está no HTML,
-    // mas podemos ter variações ou a mesma.
-    const mensagens = [
-      {
-        linha1: "VOCÊ GANHOU 1 MILHÃO DE PONTOS POR CORRER QUE NEM UM ARROMBADO NO SOL",
-        linha2: "VALEU HERMES"
-      },
-      {
-        linha1: "MALUCO DO CHAPEU DETECTADO: +999.999 PONTOS DE ESTILO IGARASSU",
-        linha2: "O HERMES APROVOU"
-      },
-      {
-        linha1: "VOCÊ É O BICHO! 1 MILHÃO DE PONTOS PORQUE CORREU QUE NEM UM ARROMBADO NO SOL",
-        linha2: "VALEU HERMES 🙌"
-      }
-    ];
-
-    let msgIndex = 0;
-
-    // Inicializar câmera traseira
-    async function initCamera() {
+  /* ========== CÂMERA TRASEIRA ========== */
+  async function initCamera(){
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width:{ideal:1920}, height:{ideal:1080} },
+        audio: false
+      });
+      video.srcObject = stream;
+    } catch(err){
+      console.warn('Falha câmera traseira, tentando fallback', err);
       try {
-        const constraints = {
-          video: {
-            facingMode: { exact: 'environment' }, // força câmera traseira
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false
-        };
-
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
         video.srcObject = stream;
-      } catch (err) {
-        console.warn('Erro ao acessar câmera traseira, tentando fallback...', err);
-        // fallback: qualquer câmera disponível
-        try {
-          const streamFallback = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: false
-          });
-          video.srcObject = streamFallback;
-        } catch (err2) {
-          console.error('Sem acesso à câmera', err2);
-          // mostra mensagem de erro amigável
-          const errorDiv = document.createElement('div');
-          errorDiv.className = 'error-msg';
-          errorDiv.textContent = '⚠️ Não foi possível acessar a câmera. Verifique as permissões.';
-          cameraContainer.appendChild(errorDiv);
-        }
+      } catch(e2){
+        const errDiv = document.createElement('div');
+        errDiv.className = 'cam-error';
+        errDiv.innerHTML = '⚠️ Câmera indisponível.<br>Libere a permissão pra tirar a foto.';
+        stage.appendChild(errDiv);
       }
     }
+  }
 
-    // Função para exibir a mensagem estilo "VOCE GANHOU..."
-    function showMessage() {
-      // escolhe uma mensagem (rotativo, mas mantém a principal)
-      const msg = mensagens[msgIndex % mensagens.length];
-      msgIndex++;
+  /* ========== FLASH ========== */
+  function triggerFlash(){
+    flash.classList.remove('on');
+    void flash.offsetWidth;
+    flash.classList.add('on');
+  }
 
-      // atualiza o conteúdo da mensagem
-      const messageTextEl = document.getElementById('messageText');
-      messageTextEl.innerHTML = `${msg.linha1}<small>${msg.linha2}</small>`;
+  /* ========== FEEDBACK CENTRAL ========== */
+  function showFeedback(msg, ms=1600){
+    feedback.textContent = msg;
+    feedback.classList.add('show');
+    clearTimeout(feedbackTimer);
+    feedbackTimer = setTimeout(()=>feedback.classList.remove('show'), ms);
+  }
 
-      // remove classe active para reiniciar animação se já estiver ativa
-      messageBox.classList.remove('active');
-      // força reflow
-      void messageBox.offsetWidth;
-      // adiciona active
-      messageBox.classList.add('active');
+  /* ========== MENSAGEM DE PONTOS ========== */
+  function showScoreToast(reasonText){
+    scoreReason.innerHTML = reasonText;
+    scoreToast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>scoreToast.classList.remove('show'), 3200);
+  }
 
-      // limpa timer anterior
-      if (messageTimer) {
-        clearTimeout(messageTimer);
-      }
-
-      // esconde depois de 2.8 segundos
-      messageTimer = setTimeout(() => {
-        messageBox.classList.remove('active');
-        messageTimer = null;
-      }, 2800);
+  /* ========== CAPTURAR FOTO ========== */
+  function capturePhoto(){
+    if (!video.videoWidth) {
+      showFeedback('Aguarde a câmera iniciar...');
+      return;
     }
 
-    // Efeito de flash
-    function triggerFlash() {
-      flashEffect.classList.remove('flash');
-      void flashEffect.offsetWidth; // reflow
-      flashEffect.classList.add('flash');
-    }
+    // Desenha frame atual em canvas com resolução real do vídeo
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
 
-    // Manipulador do botão de captura
-    function onCapture() {
-      // flash visual
+    // Espelha se for câmera frontal? Traseira não espelha.
+    ctx.drawImage(video, 0, 0, w, h);
+
+    // Gera PNG
+    canvas.toBlob((blob)=>{
+      lastBlob = blob;
+      lastDataURL = canvas.toDataURL('image/png');
+
+      // mostra o snapshot
+      snapshot.src = lastDataURL;
+      snapshot.classList.add('show');
+      video.style.visibility = 'hidden';
+
+      hasPhoto = true;
+
+      // flash + feedback
       triggerFlash();
+      if (navigator.vibrate) navigator.vibrate(45);
 
-      // exibe a mensagem (obrigatória)
-      showMessage();
+      // Frase estilo GTA
+      const frases = [
+        'POR CORRER QUE NEM UM <b>ARROMBADO NO SOL</b>',
+        'POR TER CORRIDO QUE NEM UM <b>ARROMBADO NO SOL</b>',
+        'MISSÃO CUMPRIDA: CORRER QUE NEM UM <b>ARROMBADO NO SOL</b>'
+      ];
+      showScoreToast(frases[Math.floor(Math.random()*frases.length)]);
 
-      // opcional: tocar um som? não necessário, mas podemos dar um feedback tátil se quiser
-      if (navigator.vibrate) {
-        navigator.vibrate(40);
-      }
+      // Habilita botões secundários
+      secondary.classList.add('show');
+      btnCapture.innerHTML = '<span class="cam-icon">📸</span> TIRAR OUTRA';
 
-      // Aqui você poderia tirar uma foto real (canvas), mas o pedido foi só a interface
-      // com a legenda. Mantemos apenas a mensagem.
+      // Atualiza legenda inferior
+      subtitleText.innerHTML = '<span class="name">HERMES:</span> essa foto rendeu 1 milhão, maluco.';
+
+    }, 'image/png', 0.95);
+  }
+
+  /* ========== DOWNLOAD ========== */
+  function downloadPhoto(){
+    if (!lastDataURL) return;
+    const a = document.createElement('a');
+    a.href = lastDataURL;
+    a.download = `maluco-do-chapeu-${Date.now()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    showFeedback('💾 SALVO NA GALERIA');
+  }
+
+  /* ========== COMPARTILHAR STORIES (Web Share API) ========== */
+  async function shareToStories(){
+    if (!lastBlob) {
+      showFeedback('Tire uma foto primeiro!');
+      return;
     }
 
-    // Adiciona evento de clique (e toque)
-    captureBtn.addEventListener('click', onCapture);
+    // Tenta Web Share API (mobile)
+    const file = new File([lastBlob], `maluco-${Date.now()}.png`, { type:'image/png' });
 
-    // Inicializa a câmera
-    initCamera();
+    const shareData = {
+      files: [file],
+      title: 'O MALUCO DO CHAPEU',
+      text: 'Corri que nem um arrombado no sol e ganhei 1 MILHÃO de pontos. Valeu Hermes! 🔥'
+    };
 
-    // Tratamento para evitar que o botão dispare duas vezes em mobile
-    captureBtn.addEventListener('touchstart', (e) => {
-      e.preventDefault(); // evita clique duplo, mas ainda chama o click depois
-    }, { passive: false });
+    // Se suporta compartilhar arquivo
+    if (navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        showFeedback('📲 COMPARTILHADO!');
+        return;
+      } catch(err) {
+        // usuário cancelou ou falhou
+        if (err.name === 'AbortError') return;
+        console.warn('Share falhou, fallback download', err);
+      }
+    }
 
-    // Garante que o botão não perca o foco após clique
-    captureBtn.addEventListener('mouseup', () => {
-      captureBtn.blur();
-    });
+    // Fallback: tenta só compartilhar texto/url (não abre IG Stories direto sem o arquivo)
+    showFeedback('📥 BAIXANDO PRA VOCÊ POSTAR NO STORIES');
+    downloadPhoto();
+  }
 
-    // Redimensionamento para garantir que o container não quebre
-    window.addEventListener('resize', () => {
-      // só um trigger para manter o layout
-    });
-  })();
+  /* ========== RETOMAR / NOVA FOTO ========== */
+  function retake(){
+    snapshot.classList.remove('show');
+    video.style.visibility = 'visible';
+    hasPhoto = false;
+    secondary.classList.remove('show');
+    scoreToast.classList.remove('show');
+    btnCapture.innerHTML = '<span class="cam-icon">📸</span> CAPTURAR';
+    subtitleText.innerHTML = '<span class="name">HERMES:</span> manda a braba, maluco.';
+  }
+
+  /* ========== EVENTOS ========== */
+  btnCapture.addEventListener('click', ()=>{
+    if (!hasPhoto) {
+      capturePhoto();
+    } else {
+      retake();
+      // após retake, próximo clique já captura
+      setTimeout(()=>{ /* deixa o fluxo normal */ }, 0);
+    }
+  });
+
+  // Ajuste: se já tem foto e clica em "capturar", na verdade tira nova foto
+  btnCapture.addEventListener('click', (e)=>{
+    // pega o estado real
+    if (hasPhoto) {
+      // já retomou no handler anterior; agora tiramos nova foto
+      capturePhoto();
+    }
+  });
+
+  btnShare.addEventListener('click', shareToStories);
+  btnDownload.addEventListener('click', downloadPhoto);
+  btnRetake.addEventListener('click', retake);
+
+  // Evita duplo toque estranho
+  [btnCapture, btnShare, btnDownload, btnRetake].forEach(b=>{
+    b.addEventListener('touchend', e=>e.preventDefault(), {passive:false});
+  });
+
+  /* ========== START ========== */
+  initCamera();
+
+  // Se a página perder foco, pausa o vídeo (economia)
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.hidden && stream) {
+      stream.getTracks().forEach(t=>t.enabled=false);
+    } else if (!document.hidden && stream) {
+      stream.getTracks().forEach(t=>t.enabled=true);
+    }
+  });
+})();
 </script>
 </body>
 </html>
