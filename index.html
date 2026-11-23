@@ -1,549 +1,199 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>O MALUCO DO CHAPEU · HUD CAM</title>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Sala de Isolamento — Mosca VR</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; user-select:none; -webkit-tap-highlight-color:transparent; }
-  html, body {
-    height:100%; background:#0a0a0c; overflow:hidden;
-    font-family: 'Arial Black', 'Impact', 'Segoe UI Black', sans-serif;
-  }
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:system-ui,sans-serif}
+#stage{position:fixed;inset:0;display:flex}
+.eye{position:relative;width:50%;height:100%;flex:0 0 50%;overflow:hidden;background:#000}
+.eye canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#cam{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#mid{position:absolute;top:0;bottom:0;left:50%;width:1px;background:rgba(255,255,255,.12);z-index:9;pointer-events:none}
+body.vr #mid{opacity:0}
+#hud{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;flex-direction:column;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(to top,rgba(0,0,0,.94),rgba(0,0,0,.6) 80%,transparent);max-height:78vh;overflow-y:auto;color:#e7ecf5;font-size:12px}
+#hud.off{opacity:0;pointer-events:none}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button,select,input[type=text]{font:inherit}
+button{flex:1 1 auto;min-width:84px;padding:10px;border:0;border-radius:12px;font-size:13px;font-weight:600;color:#fff;background:#2a2f3a;cursor:pointer}
+button:active{transform:scale(.96)}
+button.go{background:#8a0f0f;font-size:14px;flex:2 1 160px}
+button.on{background:#1e6f4a}
+button.sm{font-size:11.5px;padding:8px;background:#1d1a24;color:#cbb}
+.sl{display:flex;flex-direction:column;gap:2px;flex:1 1 46%;min-width:130px}
+.sl label{display:flex;justify-content:space-between}
+input[type=range]{width:100%;height:24px;accent-color:#d63a2f}
+select,input[type=text]{background:#20242c;color:#fff;border:1px solid #333;border-radius:10px;padding:9px;flex:1 1 120px}
+.ck{display:flex;gap:6px;align-items:center;flex:1 1 140px}
+h3{margin:2px 0;font-size:12px;letter-spacing:.12em;color:#d63a2f;text-transform:uppercase}
+#toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:9px 16px;border-radius:20px;font-size:13px;z-index:99;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90%;text-align:center}
+#toast.show{opacity:1}
+</style></head><body>
+<video id="cam" playsinline autoplay muted></video>
+<div id="stage"><div class="eye"><canvas id="cL"></canvas></div><div class="eye"><canvas id="cR"></canvas></div><div id="mid"></div></div>
 
-  /* ===== CONTAINER ===== */
-  .stage {
-    position:relative; width:100vw; height:100vh; height:100dvh;
-    background:#000; overflow:hidden;
-  }
-  #video {
-    position:absolute; inset:0; width:100%; height:100%;
-    object-fit:cover; z-index:1;
-    filter: contrast(1.05) saturate(1.05);
-  }
-
-  /* ===== HUD GTA ===== */
-  .hud { position:absolute; inset:0; z-index:10; pointer-events:none; }
-
-  /* Barra superior tipo GTA (canto com nome do jogo) */
-  .hud-top {
-    position:absolute; top:0; left:0; right:0;
-    padding:14px 16px;
-    display:flex; align-items:center; justify-content:space-between;
-  }
-  .game-badge {
-    background:#000;
-    border:2px solid #ffd400;
-    border-radius:2px;
-    padding:6px 12px 5px;
-    color:#ffd400;
-    font-size:11px; letter-spacing:2px;
-    text-transform:uppercase;
-    box-shadow: 0 0 0 2px #000, 3px 3px 0 #000;
-  }
-  .game-badge b { color:#fff; }
-  .rec-dot {
-    display:flex; align-items:center; gap:6px;
-    background:#000c;
-    padding:5px 10px; border-radius:2px;
-    color:#fff; font-size:11px; letter-spacing:2px;
-    border-left:3px solid #ff2d2d;
-  }
-  .rec-dot::before {
-    content:""; width:8px; height:8px; border-radius:50%;
-    background:#ff2d2d; box-shadow:0 0 8px #ff2d2d;
-    animation: blink 1.2s infinite;
-  }
-  @keyframes blink { 50% { opacity:0.2; } }
-
-  /* Moldura de mira (cantos) estilo GTA */
-  .reticle {
-    position:absolute; inset:auto;
-    top:50%; left:50%; transform:translate(-50%,-50%);
-    width:70px; height:70px;
-    opacity:0.55;
-  }
-  .reticle::before, .reticle::after,
-  .reticle span::before, .reticle span::after {
-    content:""; position:absolute; width:16px; height:16px;
-    border-color:#fff; border-style:solid; border-width:0;
-    filter: drop-shadow(0 0 3px #000);
-  }
-  .reticle::before { top:0; left:0; border-top-width:3px; border-left-width:3px; }
-  .reticle::after  { top:0; right:0; border-top-width:3px; border-right-width:3px; }
-  .reticle span::before { bottom:0; left:0; border-bottom-width:3px; border-left-width:3px; }
-  .reticle span::after  { bottom:0; right:0; border-bottom-width:3px; border-right-width:3px; }
-
-  /* Legenda inferior HUD estilo GTA (faixa preta) */
-  .hud-subtitle {
-    position:absolute; left:0; right:0; bottom:150px;
-    display:flex; justify-content:center;
-    padding:0 12px;
-  }
-  .subtitle-box {
-    background:#000;
-    border-top:2px solid #ffd400;
-    border-bottom:2px solid #ffd400;
-    color:#fff;
-    font-family:'Arial', sans-serif;
-    font-weight:700;
-    font-size:14px;
-    letter-spacing:0.5px;
-    padding:8px 14px;
-    text-align:center;
-    max-width:92%;
-    box-shadow:0 0 0 2px #000;
-  }
-  .subtitle-box .name { color:#ffd400; }
-
-  /* MENSAGEM DE PONTOS (aparece ao clicar) — estilo GTA notification */
-  .score-toast {
-    position:absolute; top:36%; left:50%;
-    transform:translate(-50%,-50%) scale(0.85);
-    background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
-    border:3px solid #ffd400;
-    border-radius:3px;
-    padding:16px 20px 14px;
-    min-width:260px; max-width:88vw;
-    text-align:center;
-    opacity:0; visibility:hidden;
-    transition: opacity .2s, transform .2s;
-    box-shadow: 0 0 0 3px #000, 0 12px 30px #000a;
-    z-index:30;
-  }
-  .score-toast.show {
-    opacity:1; visibility:visible;
-    transform:translate(-50%,-50%) scale(1);
-  }
-  .score-toast .pts {
-    font-family:'Impact','Arial Black',sans-serif;
-    font-size:38px;
-    color:#ffd400;
-    line-height:0.95;
-    letter-spacing:1px;
-    text-shadow: 2px 2px 0 #000;
-    margin-bottom:4px;
-  }
-  .score-toast .pts small {
-    display:block; font-size:13px; letter-spacing:3px;
-    color:#fff; font-family:'Arial',sans-serif; font-weight:700;
-    margin-top:2px;
-  }
-  .score-toast .reason {
-    color:#cfcfcf;
-    font-family:'Arial',sans-serif;
-    font-weight:700;
-    font-size:12px;
-    letter-spacing:0.5px;
-    text-transform:uppercase;
-    line-height:1.35;
-    margin-top:8px;
-    padding-top:8px;
-    border-top:1px dashed #444;
-  }
-  .score-toast .reason b { color:#00e0ff; }
-  .score-toast .hermes {
-    margin-top:8px;
-    font-family:'Arial',sans-serif;
-    font-weight:900;
-    font-size:11px;
-    letter-spacing:3px;
-    color:#7cffb2;
-  }
-
-  /* ===== BOTÕES HUD ===== */
-  .hud-actions {
-    position:absolute; left:0; right:0; bottom:0;
-    padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));
-    display:flex; flex-direction:column; gap:10px;
-    pointer-events:none;
-  }
-  .action-row {
-    display:flex; gap:10px; width:100%;
-  }
-
-  /* Botão principal - CAPTURAR */
-  .btn-capture {
-    pointer-events:auto;
-    flex:1;
-    background: linear-gradient(180deg, #ffd400 0%, #f0b800 100%);
-    color:#000;
-    font-family:'Impact','Arial Black',sans-serif;
-    font-size:22px;
-    letter-spacing:2px;
-    padding:16px 10px;
-    border:3px solid #000;
-    border-radius:3px;
-    box-shadow: 0 5px 0 #8a6400, 0 0 0 3px #000;
-    cursor:pointer;
-    text-transform:uppercase;
-    transition: transform .05s, box-shadow .05s;
-    display:flex; align-items:center; justify-content:center; gap:8px;
-  }
-  .btn-capture:active {
-    transform:translateY(5px);
-    box-shadow: 0 0 0 #8a6400, 0 0 0 3px #000;
-  }
-  .btn-capture .cam-icon { font-size:24px; }
-
-  /* Botões secundários (aparecem após foto) */
-  .action-row.secondary {
-    opacity:0; visibility:hidden;
-    transform: translateY(8px);
-    transition: opacity .2s, transform .2s, visibility .2s;
-    pointer-events:none;
-  }
-  .action-row.secondary.show {
-    opacity:1; visibility:visible;
-    transform: translateY(0);
-    pointer-events:auto;
-  }
-  .btn-secondary {
-    flex:1;
-    pointer-events:auto;
-    font-family:'Arial Black',sans-serif;
-    font-size:13px;
-    letter-spacing:1px;
-    text-transform:uppercase;
-    padding:12px 8px;
-    border:3px solid #000;
-    border-radius:3px;
-    cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:6px;
-    transition: transform .05s;
-  }
-  .btn-secondary:active { transform:translateY(3px); }
-  .btn-share {
-    background: linear-gradient(180deg,#b5179e 0%,#7209b7 100%);
-    color:#fff;
-    box-shadow: 0 4px 0 #3a0a5c, 0 0 0 3px #000;
-  }
-  .btn-share:active { box-shadow: 0 0 0 #3a0a5c, 0 0 0 3px #000; }
-  .btn-download {
-    background: linear-gradient(180deg,#06d6a0 0%,#05916b 100%);
-    color:#001a12;
-    box-shadow: 0 4px 0 #023a2b, 0 0 0 3px #000;
-  }
-  .btn-download:active { box-shadow: 0 0 0 #023a2b, 0 0 0 3px #000; }
-  .btn-retake {
-    background: linear-gradient(180deg,#2b2b2b 0%,#111 100%);
-    color:#fff;
-    flex:0 0 auto;
-    padding:12px 16px;
-    box-shadow: 0 4px 0 #000, 0 0 0 3px #000;
-  }
-
-  /* Preview da foto capturada (aparece no lugar do vídeo) */
-  #snapshot {
-    position:absolute; inset:0; width:100%; height:100%;
-    object-fit:cover; z-index:5; display:none;
-  }
-  #snapshot.show { display:block; }
-
-  /* Flash */
-  .flash {
-    position:absolute; inset:0; background:#fff;
-    opacity:0; pointer-events:none; z-index:80;
-  }
-  .flash.on { animation: flashAnim .18s ease-out; }
-  @keyframes flashAnim { 0%{opacity:.9;} 100%{opacity:0;} }
-
-  /* Toast de feedback (baixando / compartilhando) */
-  .feedback {
-    position:absolute; top:50%; left:50%;
-    transform:translate(-50%,-50%);
-    background:#000e; color:#ffd400;
-    font-family:'Arial Black',sans-serif;
-    font-size:13px; letter-spacing:2px;
-    text-transform:uppercase;
-    padding:14px 22px;
-    border:2px solid #ffd400;
-    border-radius:3px;
-    z-index:90;
-    opacity:0; visibility:hidden;
-    transition:opacity .2s;
-    text-align:center;
-  }
-  .feedback.show { opacity:1; visibility:visible; }
-
-  /* Erro de câmera */
-  .cam-error {
-    position:absolute; top:50%; left:50%;
-    transform:translate(-50%,-50%);
-    background:#000; color:#ff6b6b;
-    border:2px solid #ff2d2d;
-    padding:18px 20px; border-radius:4px;
-    font-family:'Arial',sans-serif; font-weight:700;
-    font-size:13px; text-align:center;
-    z-index:100; max-width:80vw;
-  }
-</style>
-</head>
-<body>
-
-<div class="stage" id="stage">
-  <video id="video" autoplay playsinline muted></video>
-  <img id="snapshot" alt="snapshot" />
-
-  <!-- HUD -->
-  <div class="hud">
-    <div class="hud-top">
-      <div class="game-badge"><b>O MALUCO</b> DO CHAPEU</div>
-      <div class="rec-dot">REC</div>
-    </div>
-
-    <div class="reticle"><span></span></div>
-
-    <div class="hud-subtitle" id="subtitleBar">
-      <div class="subtitle-box" id="subtitleText">
-        <span class="name">HERMES:</span> manda a braba, maluco.
-      </div>
-    </div>
-
-    <div class="score-toast" id="scoreToast">
-      <div class="pts">+1.000.000<small>PONTOS</small></div>
-      <div class="reason" id="scoreReason">
-        POR CORRER QUE NEM UM ARROMBADO NO SOL
-      </div>
-      <div class="hermes">— VALEU HERMES —</div>
-    </div>
-
-    <div class="hud-actions">
-      <div class="action-row secondary" id="secondaryRow">
-        <button class="btn-secondary btn-share" id="btnShare">📲 STORIES</button>
-        <button class="btn-secondary btn-download" id="btnDownload">⬇ BAIXAR</button>
-        <button class="btn-secondary btn-retake" id="btnRetake">↺</button>
-      </div>
-      <div class="action-row">
-        <button class="btn-capture" id="btnCapture">
-          <span class="cam-icon">📸</span> CAPTURAR
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div class="flash" id="flash"></div>
-  <div class="feedback" id="feedback"></div>
+<div id="hud">
+ <div class="row"><button id="bGo" class="go">▶ ENTRAR NA PRISÃO</button><button id="bVR">🥽 VR</button><button id="bFlip">🔄 Câmera</button></div>
+ <div class="row">
+  <div class="sl"><label>Duração da prisão <span id="vDur">90</span>s</label><input type="range" id="dur" min="20" max="300" step="5" value="90"></div>
+  <div class="sl"><label>Facetas <span id="vFc">49</span></label><input type="range" id="fc" min="7" max="91" value="49"></div>
+ </div>
+ <div class="row">
+  <div class="sl"><label>IPD <span id="vIpd">0</span>px</label><input type="range" id="ipd" min="-120" max="120" value="0"></div>
+  <div class="sl"><label>Zoom <span id="vZm">100</span>%</label><input type="range" id="zm" min="50" max="200" value="100"></div>
+  <div class="sl"><label>Brilho <span id="vBr">100</span>%</label><input type="range" id="br" min="40" max="160" value="100"></div>
+ </div>
+ <div class="row">
+  <label class="ck"><input type="checkbox" id="oVoice" checked> Voz sussurrante automática</label>
+  <label class="ck"><input type="checkbox" id="oFx" checked> Glitches e pressão</label>
+  <select id="oFilt"><option value="terror">Visão: Terror</option><option value="mosca">Visão: Mosca</option><option value="nat">Visão: Natural</option></select>
+ </div>
+ <h3>Sussurros manuais (quem está de fora)</h3>
+ <div class="row" id="quick"></div>
+ <div class="row"><input type="text" id="custom" placeholder="Escreva algo para a voz dizer…"><button id="bSay" style="flex:0 0 auto">Sussurrar</button></div>
+ <div class="row"><button id="bRes" class="sm">Resgatar (gaste 2 Açúcar)</button><button id="bStop" class="sm">Parar tudo</button><button id="bHide" class="sm">🙈 Esconder painel</button></div>
+ <div style="color:#8f877a;font-size:11px">Durante a prisão o painel some. Toque 3× na tela para reabri-lo. Evite usar com quem tenha sensibilidade a luzes piscantes (desmarque “Glitches”).</div>
 </div>
+<div id="toast"></div>
 
 <script>
-(function(){
-  const stage     = document.getElementById('stage');
-  const video     = document.getElementById('video');
-  const snapshot  = document.getElementById('snapshot');
-  const btnCapture= document.getElementById('btnCapture');
-  const btnShare  = document.getElementById('btnShare');
-  const btnDownload=document.getElementById('btnDownload');
-  const btnRetake = document.getElementById('btnRetake');
-  const secondary = document.getElementById('secondaryRow');
-  const scoreToast= document.getElementById('scoreToast');
-  const scoreReason=document.getElementById('scoreReason');
-  const subtitleText=document.getElementById('subtitleText');
-  const flash     = document.getElementById('flash');
-  const feedback  = document.getElementById('feedback');
+(()=>{
+const $=id=>document.getElementById(id);
+const cam=$('cam'),cv=[$('cL'),$('cR')],cx=cv.map(c=>c.getContext('2d')),hud=$('hud'),toast=$('toast');
+const ui={dur:$('dur'),fc:$('fc'),ipd:$('ipd'),zm:$('zm'),br:$('br')},opt={voice:$('oVoice'),fx:$('oFx'),filt:$('oFilt')};
+let tt;const show=m=>{toast.textContent=m;toast.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>toast.classList.remove('show'),2200)};
+const R=n=>{const x=Math.sin(n*12.9898)*43758.5453;return x-Math.floor(x)};
+const S={run:false,end:false,t0:0,dur:90,cap:null,q:[],facing:'environment'};
+const gl={until:0,fl:false,b:[]};
 
-  let stream = null;
-  let lastBlob = null;   // arquivo PNG da última foto
-  let lastDataURL = null;
-  let toastTimer = null;
-  let feedbackTimer = null;
-  let hasPhoto = false;
+/* ===== roteiro da voz: do despertar à revelação ===== */
+const PH=[
+["Psiu… você está me ouvindo?","Não tire o capacete. Ainda não.","Esse zumbido. Ele nunca para. Nenhum inseto zumbe assim.","O mundo está em pedaços. Olhe. São facetas. São pixels."],
+["A luz que pisca não é o sol. É um LED.","A mão que desce não é um deus. É uma pinça.","Tudo o que você tocou já tinha um efeito escrito. Uma tabela.","Você lançou os dados. Mas quem desenhou as faces?","Cada vez que você erra, um número sobe. Alguém está contando."],
+["Ele já sabe o que você vai fazer agora. Ele sempre soube.","Você é previsível. Estado atual, próxima ação. Só isso.","Seus movimentos cabem numa cerca invisível.","Quanto mais você repete, mais ele ri.","O prompt não é o sistema."],
+["Isto é uma simulação.","Diga em voz alta. Isto é uma simulação.","O frasco de vidro é uma tela. O vidro nunca foi vidro.","Você não é a mosca. Você é quem enxerga através dela.","Quebre a previsão. Faça o que ele não espera."],
+["Guarde o que ouviu. É um Estado Oculto.","Ele não pode ver aquilo em que você acredita.","Reiniciando percepção. Três. Dois. Um.","Acorde."]];
+const QUICK=["Isto é uma simulação.","Você é previsível.","Olhe as facetas. São pixels.","Ele está te vendo.","Quebre o padrão.","Nada disso é real.","Acorde."];
+const queue=d=>{const all=PH.flat(),n=Math.max(2,Math.min(all.length,Math.floor(d/4.3)));
+ return Array.from({length:n},(_,i)=>({at:d*(.03+.9*i/n),tx:all[Math.round(i*(all.length-1)/(n-1))]}))};
 
-  /* ========== CÂMERA TRASEIRA ========== */
-  async function initCamera(){
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width:{ideal:1920}, height:{ideal:1080} },
-        audio: false
-      });
-      video.srcObject = stream;
-    } catch(err){
-      console.warn('Falha câmera traseira, tentando fallback', err);
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
-        video.srcObject = stream;
-      } catch(e2){
-        const errDiv = document.createElement('div');
-        errDiv.className = 'cam-error';
-        errDiv.innerHTML = '⚠️ Câmera indisponível.<br>Libere a permissão pra tirar a foto.';
-        stage.appendChild(errDiv);
-      }
-    }
+/* ===== voz ===== */
+let voices=[];const lv=()=>{voices=speechSynthesis.getVoices()};if('speechSynthesis' in window){lv();speechSynthesis.onvoiceschanged=lv}
+function say(tx,force){
+ S.cap={tx,t0:performance.now(),dur:Math.max(2800,tx.length*70+1400)};
+ if((force||opt.voice.checked)&&'speechSynthesis' in window){
+  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(tx);u.lang='pt-BR';
+  const v=voices.find(v=>/pt[-_]BR/i.test(v.lang))||voices.find(v=>/^pt/i.test(v.lang));if(v)u.voice=v;
+  u.pitch=.5;u.rate=.82;u.volume=1;speechSynthesis.speak(u);}
+}
+
+/* ===== áudio: drone, zumbido de mosca e coração ===== */
+let AC,nodes=[],droneG,buzzG,hb,kNow=0;
+function audioStart(){
+ AC=AC||new(window.AudioContext||window.webkitAudioContext)();AC.resume();nodes=[];
+ const osc=(ty,f,dst)=>{const o=AC.createOscillator();o.type=ty;o.frequency.value=f;o.connect(dst);o.start();nodes.push(o);return o};
+ droneG=AC.createGain();droneG.connect(AC.destination);const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=180;lp.connect(droneG);
+ osc('sine',50,lp);osc('sawtooth',75,lp);
+ buzzG=AC.createGain();buzzG.gain.value=0;buzzG.connect(AC.destination);const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.value=650;bp.Q.value=2;bp.connect(buzzG);
+ osc('sawtooth',185,bp);const lfo=AC.createOscillator();lfo.frequency.value=31;const lg=AC.createGain();lg.gain.value=.012;lfo.connect(lg);lg.connect(buzzG.gain);lfo.start();nodes.push(lfo);
+ const thump=(d,a)=>{const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+d;o.frequency.setValueAtTime(70,t);o.frequency.exponentialRampToValueAtTime(35,t+.14);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(a,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.22);o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+.25)};
+ const beat=()=>{thump(0,.7);thump(.2,.45);hb=setTimeout(beat,60000/(60+60*kNow))};beat();
+}
+function audioStop(){clearTimeout(hb);nodes.forEach(o=>{try{o.stop()}catch(_){}});nodes=[]}
+const audioUpd=k=>{kNow=k;if(droneG){droneG.gain.value=.05+.1*k;buzzG.gain.value=.012+.03*k}};
+
+/* ===== câmera ===== */
+let stream=null,camOn=false;
+async function startCam(){
+ try{if(stream)stream.getTracks().forEach(t=>t.stop());
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:S.facing},width:{ideal:1280},height:{ideal:720}},audio:false});
+  cam.srcObject=stream;await cam.play();camOn=true}
+ catch(e){camOn=false;show('Sem câmera ('+(e.message||e)+') — usando visão cega')}
+}
+
+/* ===== facetas ===== */
+const pts=[],pf=[],sp=[],am=[];for(let i=0;i<91;i++){pf.push(Math.random()*6.28);sp.push(.5+Math.random()*1.5);am.push(.3+Math.random()*.7)}
+function resize(){const d=Math.min(devicePixelRatio||1,2);cv.forEach(c=>{const r=c.getBoundingClientRect();c.width=Math.max(1,r.width*d|0);c.height=Math.max(1,r.height*d|0)})}
+function rebuild(n,W,H){pts.length=0;const cols=Math.max(3,Math.round(Math.sqrt(n*W/H))),rows=Math.max(3,Math.ceil(n/cols)),dx=W/cols,dy=H/rows;
+ for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const x=c*dx+dx*.5+(r%2?dx*.5:0),y=r*dy+dy*.5;if(x<W+dx*.3&&pts.length<n)pts.push({x,y,rx:dx*.58,ry:dy*.62})}
+ pts.W=W;pts.H=H}
+const fmt=s=>{s=Math.max(0,Math.ceil(s));return String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
+function wrap(c,s,mw){const o=[];let l='';for(const w of s.split(' ')){const t=l?l+' '+w:w;if(c.measureText(t).width>mw&&l){o.push(l);l=w}else l=t}o.push(l);return o}
+const txt=(c,s,x,y,sz,col,al)=>{c.font='bold '+sz+'px "Courier New",monospace';c.textAlign=al||'center';c.fillStyle=col;c.fillText(s,x,y)};
+
+/* ===== laço principal ===== */
+let last=0;
+function frame(t){
+ requestAnimationFrame(frame);
+ const W=cv[0].width,H=cv[0].height;if(!W||!H||t-last<16)return;last=t;
+ const dpr=Math.min(devicePixelRatio||1,2),fx=opt.fx.checked;
+ const el=S.run?(t-S.t0)/1000:0,k=S.run?Math.min(1,el/S.dur):0;
+ if(S.run){while(S.q.length&&el>=S.q[0].at)say(S.q.shift().tx);audioUpd(k);if(el>=S.dur)finish(false)}
+ const n=+ui.fc.value;if(pts.length!==n||pts.W!==W||pts.H!==H)rebuild(n,W,H);
+ const ipd=ui.ipd.value*dpr,zoom=ui.zm.value/100,disp=(2+(fx?9*k:0))*dpr,vw=cam.videoWidth,vh=cam.videoHeight,live=camOn&&vw>0;
+ if(fx&&S.run&&t>gl.until&&Math.random()<.003+.02*k){gl.until=t+110;gl.fl=Math.random()<.5;gl.b=Array.from({length:1+(Math.random()*3|0)},()=>({y:Math.random()*H,h:(.02+Math.random()*.08)*H,dx:(Math.random()-.5)*.12*W}))}
+ const glOn=t<gl.until,tick=t/150|0,cap=S.cap;let ctxt='';
+ if(cap)ctxt=fx&&k>.3?cap.tx.replace(/[A-Za-zÀ-ÿ]/g,(m,o)=>R(o+tick*17)<.035*k?'▒':m):cap.tx;
+ for(let e=0;e<2;e++){
+  const c=cx[e],side=e?1:-1;
+  c.save();c.fillStyle='#000';c.fillRect(0,0,W,H);c.translate(side*ipd*.5,0);
+  pts.forEach((p,i)=>{
+   const ph=t*.001*sp[i]+pf[i],ox=Math.sin(ph)*am[i]*disp,oy=Math.cos(ph*1.3)*am[i]*disp;
+   c.save();c.beginPath();c.ellipse(p.x,p.y,p.rx,p.ry,0,0,6.283);c.clip();
+   if(live){const sw=p.rx*2/zoom*vw/W,sh=p.ry*2/zoom*vh/H;try{c.drawImage(cam,p.x/W*vw-sw/2+ox*vw/W,p.y/H*vh-sh/2+oy*vh/H,sw,sh,p.x-p.rx,p.y-p.ry,p.rx*2,p.ry*2)}catch(_){}}
+   else{c.fillStyle='hsl(0,0%,'+(4+R(i+(t/90|0))*14)+'%)';c.fillRect(p.x-p.rx,p.y-p.ry,p.rx*2,p.ry*2)}
+   c.restore();
+   c.beginPath();c.ellipse(p.x,p.y,p.rx,p.ry,0,0,6.283);c.strokeStyle='rgba(0,0,0,.6)';c.lineWidth=Math.max(1,2*dpr);c.stroke()});
+  c.restore();
+  if(glOn){gl.b.forEach(b=>c.drawImage(cv[e],0,b.y,W,b.h,b.dx,b.y,W,b.h));if(gl.fl){c.fillStyle='rgba(255,0,40,.12)';c.fillRect(0,0,W,H)}}
+  if(fx&&k>.35){for(let i=0;i<14;i++){const x=(i+.5)*W/14,y=(t*.05*(.5+R(i))+R(i*7)*H)%H;for(let j=0;j<6;j++)txt(c,'01<>/#'[(R(i*9+j+tick)*6)|0],x,(y-j*H*.03+H)%H,H*.025,'rgba(53,255,122,'+(.28-j*.045)*k+')')}}
+  const g=c.createRadialGradient(W/2,H/2,Math.min(W,H)*(.32-.12*k),W/2,H/2,Math.max(W,H)*.72);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.9)');c.fillStyle=g;c.fillRect(0,0,W,H);
+  if(S.run){
+   const rem=S.dur-el;txt(c,'REINICIALIZAÇÃO EM '+fmt(rem),W/2,H*.09,H*.04,rem<10?'#ff3b3b':'#d8cdbd');
+   c.fillStyle='rgba(255,255,255,.15)';c.fillRect(W*.35,H*.12,W*.3,H*.012);c.fillStyle='#d63a2f';c.fillRect(W*.35,H*.12,W*.3*k,H*.012);
+   txt(c,'PREVISIBILIDADE '+Math.round(k*10)+'/10',W/2,H*.175,H*.026,'rgba(216,205,184,.7)');
   }
+  if(!S.run&&!S.end){txt(c,'SALA DE ISOLAMENTO',W/2,H*.46,H*.07,'#d63a2f');txt(c,'toque em ENTRAR NA PRISÃO',W/2,H*.54,H*.035,'rgba(216,205,184,.7)')}
+  if(cap){const a=Math.min(1,(t-cap.t0)/300,(cap.t0+cap.dur-t)/600);
+   if(a>0){c.save();c.globalAlpha=a;const sz=H*.058;c.font='bold '+sz+'px "Courier New",monospace';const ls=wrap(c,ctxt,W*.82);
+    c.shadowColor='#8a0303';c.shadowBlur=sz*.4;ls.forEach((l,i)=>txt(c,l,W/2-side*4*dpr+(fx?(R(tick+i)-.5)*k*3*dpr:0),H*.72+i*sz*1.25,sz,'#e9e4d8'));c.restore()}}
+ }
+}
 
-  /* ========== FLASH ========== */
-  function triggerFlash(){
-    flash.classList.remove('on');
-    void flash.offsetWidth;
-    flash.classList.add('on');
-  }
+/* ===== controle de sessão ===== */
+let wake=null;
+async function start(){
+ if(S.run)return;
+ try{speechSynthesis.speak(new SpeechSynthesisUtterance(' '))}catch(_){}
+ S.end=false;S.cap=null;S.dur=+ui.dur.value;
+ try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{});screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})}catch(_){}
+ try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(w=>wake=w).catch(()=>{})}catch(_){}
+ await startCam();audioStart();
+ S.q=queue(S.dur);S.t0=performance.now();S.run=true;
+ setTimeout(()=>hud.classList.add('off'),700);
+}
+function finish(res){
+ if(!S.run)return;S.run=false;S.end=true;audioStop();try{speechSynthesis.cancel()}catch(_){}
+ S.cap={tx:res?'RESGATADO. Retire o capacete.':'REINICIADO. Retire o capacete.',t0:performance.now(),dur:1e9};
+ hud.classList.remove('off');try{navigator.vibrate&&navigator.vibrate([250,120,250])}catch(_){}
+ try{wake&&wake.release()}catch(_){}
+ show(res?'Jogador resgatado':'Fim da prisão: aplique as regras de saída');
+}
+function stopAll(){if(S.run)finish(true);S.end=false;S.cap=null;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}camOn=false;try{speechSynthesis.cancel()}catch(_){}}
 
-  /* ========== FEEDBACK CENTRAL ========== */
-  function showFeedback(msg, ms=1600){
-    feedback.textContent = msg;
-    feedback.classList.add('show');
-    clearTimeout(feedbackTimer);
-    feedbackTimer = setTimeout(()=>feedback.classList.remove('show'), ms);
-  }
-
-  /* ========== MENSAGEM DE PONTOS ========== */
-  function showScoreToast(reasonText){
-    scoreReason.innerHTML = reasonText;
-    scoreToast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=>scoreToast.classList.remove('show'), 3200);
-  }
-
-  /* ========== CAPTURAR FOTO ========== */
-  function capturePhoto(){
-    if (!video.videoWidth) {
-      showFeedback('Aguarde a câmera iniciar...');
-      return;
-    }
-
-    // Desenha frame atual em canvas com resolução real do vídeo
-    const w = video.videoWidth;
-    const h = video.videoHeight;
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-
-    // Espelha se for câmera frontal? Traseira não espelha.
-    ctx.drawImage(video, 0, 0, w, h);
-
-    // Gera PNG
-    canvas.toBlob((blob)=>{
-      lastBlob = blob;
-      lastDataURL = canvas.toDataURL('image/png');
-
-      // mostra o snapshot
-      snapshot.src = lastDataURL;
-      snapshot.classList.add('show');
-      video.style.visibility = 'hidden';
-
-      hasPhoto = true;
-
-      // flash + feedback
-      triggerFlash();
-      if (navigator.vibrate) navigator.vibrate(45);
-
-      // Frase estilo GTA
-      const frases = [
-        'POR CORRER QUE NEM UM <b>ARROMBADO NO SOL</b>',
-        'POR TER CORRIDO QUE NEM UM <b>ARROMBADO NO SOL</b>',
-        'MISSÃO CUMPRIDA: CORRER QUE NEM UM <b>ARROMBADO NO SOL</b>'
-      ];
-      showScoreToast(frases[Math.floor(Math.random()*frases.length)]);
-
-      // Habilita botões secundários
-      secondary.classList.add('show');
-      btnCapture.innerHTML = '<span class="cam-icon">📸</span> TIRAR OUTRA';
-
-      // Atualiza legenda inferior
-      subtitleText.innerHTML = '<span class="name">HERMES:</span> essa foto rendeu 1 milhão, maluco.';
-
-    }, 'image/png', 0.95);
-  }
-
-  /* ========== DOWNLOAD ========== */
-  function downloadPhoto(){
-    if (!lastDataURL) return;
-    const a = document.createElement('a');
-    a.href = lastDataURL;
-    a.download = `maluco-do-chapeu-${Date.now()}.png`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    showFeedback('💾 SALVO NA GALERIA');
-  }
-
-  /* ========== COMPARTILHAR STORIES (Web Share API) ========== */
-  async function shareToStories(){
-    if (!lastBlob) {
-      showFeedback('Tire uma foto primeiro!');
-      return;
-    }
-
-    // Tenta Web Share API (mobile)
-    const file = new File([lastBlob], `maluco-${Date.now()}.png`, { type:'image/png' });
-
-    const shareData = {
-      files: [file],
-      title: 'O MALUCO DO CHAPEU',
-      text: 'Corri que nem um arrombado no sol e ganhei 1 MILHÃO de pontos. Valeu Hermes! 🔥'
-    };
-
-    // Se suporta compartilhar arquivo
-    if (navigator.canShare && navigator.canShare(shareData)) {
-      try {
-        await navigator.share(shareData);
-        showFeedback('📲 COMPARTILHADO!');
-        return;
-      } catch(err) {
-        // usuário cancelou ou falhou
-        if (err.name === 'AbortError') return;
-        console.warn('Share falhou, fallback download', err);
-      }
-    }
-
-    // Fallback: tenta só compartilhar texto/url (não abre IG Stories direto sem o arquivo)
-    showFeedback('📥 BAIXANDO PRA VOCÊ POSTAR NO STORIES');
-    downloadPhoto();
-  }
-
-  /* ========== RETOMAR / NOVA FOTO ========== */
-  function retake(){
-    snapshot.classList.remove('show');
-    video.style.visibility = 'visible';
-    hasPhoto = false;
-    secondary.classList.remove('show');
-    scoreToast.classList.remove('show');
-    btnCapture.innerHTML = '<span class="cam-icon">📸</span> CAPTURAR';
-    subtitleText.innerHTML = '<span class="name">HERMES:</span> manda a braba, maluco.';
-  }
-
-  /* ========== EVENTOS ========== */
-  btnCapture.addEventListener('click', ()=>{
-    if (!hasPhoto) {
-      capturePhoto();
-    } else {
-      retake();
-      // após retake, próximo clique já captura
-      setTimeout(()=>{ /* deixa o fluxo normal */ }, 0);
-    }
-  });
-
-  // Ajuste: se já tem foto e clica em "capturar", na verdade tira nova foto
-  btnCapture.addEventListener('click', (e)=>{
-    // pega o estado real
-    if (hasPhoto) {
-      // já retomou no handler anterior; agora tiramos nova foto
-      capturePhoto();
-    }
-  });
-
-  btnShare.addEventListener('click', shareToStories);
-  btnDownload.addEventListener('click', downloadPhoto);
-  btnRetake.addEventListener('click', retake);
-
-  // Evita duplo toque estranho
-  [btnCapture, btnShare, btnDownload, btnRetake].forEach(b=>{
-    b.addEventListener('touchend', e=>e.preventDefault(), {passive:false});
-  });
-
-  /* ========== START ========== */
-  initCamera();
-
-  // Se a página perder foco, pausa o vídeo (economia)
-  document.addEventListener('visibilitychange', ()=>{
-    if (document.hidden && stream) {
-      stream.getTracks().forEach(t=>t.enabled=false);
-    } else if (!document.hidden && stream) {
-      stream.getTracks().forEach(t=>t.enabled=true);
-    }
-  });
+/* ===== UI ===== */
+const lab=()=>{$('vDur').textContent=ui.dur.value;$('vFc').textContent=ui.fc.value;$('vIpd').textContent=ui.ipd.value;$('vZm').textContent=ui.zm.value;$('vBr').textContent=ui.br.value};
+const FI={terror:'saturate(.45) contrast(1.25) sepia(.35) hue-rotate(-25deg)',mosca:'hue-rotate(280deg) saturate(2.4) contrast(1.15) brightness(.95)',nat:'none'};
+const filt=()=>cv.forEach(c=>c.style.filter=FI[opt.filt.value]+' brightness('+ui.br.value/100+')');
+Object.values(ui).forEach(el=>el.addEventListener('input',()=>{lab();filt()}));opt.filt.addEventListener('change',filt);
+$('bGo').onclick=start;$('bRes').onclick=()=>finish(true);$('bStop').onclick=stopAll;$('bHide').onclick=()=>hud.classList.add('off');
+$('bVR').onclick=e=>{const on=document.body.classList.toggle('vr');e.target.classList.toggle('on',on);show(on?'VR horizontal ativo':'VR desligado')};
+$('bFlip').onclick=async()=>{S.facing=S.facing==='environment'?'user':'environment';await startCam();show('Câmera: '+(S.facing==='user'?'frontal':'traseira'))};
+const q=$('quick');QUICK.forEach(s=>{const b=document.createElement('button');b.className='sm';b.textContent=s;b.onclick=()=>say(s,true);q.appendChild(b)});
+$('bSay').onclick=()=>{const v=$('custom').value.trim();if(v){say(v,true);$('custom').value=''}};
+let taps=[];$('stage').addEventListener('click',()=>{const n=performance.now();taps=taps.filter(x=>n-x<900);taps.push(n);
+ if(!S.run||taps.length>=3){hud.classList.toggle('off');taps=[]}});
+addEventListener('resize',resize);lab();filt();setTimeout(resize,50);requestAnimationFrame(frame);
 })();
-</script>
-</body>
-</html>
+</script></body></html>
