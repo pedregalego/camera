@@ -1,199 +1,943 @@
 <!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Sala de Isolamento — Mosca VR</title>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Neurocosmograma Bacteriano — Leary VR + Consciência OpenRouter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:system-ui,sans-serif}
-#stage{position:fixed;inset:0;display:flex}
-.eye{position:relative;width:50%;height:100%;flex:0 0 50%;overflow:hidden;background:#000}
-.eye canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-#cam{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-#mid{position:absolute;top:0;bottom:0;left:50%;width:1px;background:rgba(255,255,255,.12);z-index:9;pointer-events:none}
-body.vr #mid{opacity:0}
-#hud{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;flex-direction:column;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(to top,rgba(0,0,0,.94),rgba(0,0,0,.6) 80%,transparent);max-height:78vh;overflow-y:auto;color:#e7ecf5;font-size:12px}
-#hud.off{opacity:0;pointer-events:none}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-button,select,input[type=text]{font:inherit}
-button{flex:1 1 auto;min-width:84px;padding:10px;border:0;border-radius:12px;font-size:13px;font-weight:600;color:#fff;background:#2a2f3a;cursor:pointer}
-button:active{transform:scale(.96)}
-button.go{background:#8a0f0f;font-size:14px;flex:2 1 160px}
-button.on{background:#1e6f4a}
-button.sm{font-size:11.5px;padding:8px;background:#1d1a24;color:#cbb}
-.sl{display:flex;flex-direction:column;gap:2px;flex:1 1 46%;min-width:130px}
-.sl label{display:flex;justify-content:space-between}
-input[type=range]{width:100%;height:24px;accent-color:#d63a2f}
-select,input[type=text]{background:#20242c;color:#fff;border:1px solid #333;border-radius:10px;padding:9px;flex:1 1 120px}
-.ck{display:flex;gap:6px;align-items:center;flex:1 1 140px}
-h3{margin:2px 0;font-size:12px;letter-spacing:.12em;color:#d63a2f;text-transform:uppercase}
-#toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:9px 16px;border-radius:20px;font-size:13px;z-index:99;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90%;text-align:center}
-#toast.show{opacity:1}
-</style></head><body>
-<video id="cam" playsinline autoplay muted></video>
-<div id="stage"><div class="eye"><canvas id="cL"></canvas></div><div class="eye"><canvas id="cR"></canvas></div><div id="mid"></div></div>
+  :root{ --neon:#0ff; --neon2:#f0f; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:#000; overflow:hidden; font-family:ui-monospace,Menlo,Consolas,monospace; color:#bff; }
+  canvas{ display:block; }
+
+  /* ---------------- HUD ---------------- */
+  #hud{ position:fixed; bottom:10px; left:10px; z-index:10; pointer-events:none;
+        color:#0ff; font-size:11px; line-height:1.7; opacity:.55; text-shadow:0 0 6px #0ff; }
+  #hud b{ color:#f0f; font-weight:400; }
+
+  /* ---------------- botão config ---------------- */
+  #btnConfig{ position:fixed; top:12px; right:12px; z-index:30; width:38px; height:38px;
+    border-radius:50%; background:rgba(0,20,25,.7); color:#0ff; border:1px solid rgba(0,255,255,.45);
+    font-size:16px; cursor:pointer; backdrop-filter:blur(6px); transition:.25s; }
+  #btnConfig:hover{ box-shadow:0 0 18px rgba(0,255,255,.65); transform:rotate(45deg); }
+
+  /* ---------------- painel ---------------- */
+  #painel{ position:fixed; top:60px; right:12px; z-index:29; width:334px; padding:14px;
+    max-height:calc(100vh - 84px); overflow-y:auto; font-size:11.5px; line-height:1.5;
+    border-radius:14px; color:#9ce;
+    background:linear-gradient(160deg, rgba(6,10,22,.95), rgba(16,2,28,.95));
+    border:1px solid rgba(0,255,255,.22);
+    box-shadow:0 0 42px rgba(0,255,255,.10), inset 0 0 30px rgba(255,0,255,.06);
+    backdrop-filter:blur(12px);
+    transform-origin:top right; transition:opacity .18s, transform .18s; }
+  #painel.oculto{ opacity:0; transform:scale(.94) translateY(-6px); pointer-events:none; }
+  #painel::-webkit-scrollbar{ width:6px; }
+  #painel::-webkit-scrollbar-thumb{ background:rgba(0,255,255,.25); border-radius:3px; }
+  #painel h2{ margin:0 0 10px; font-size:12px; letter-spacing:1.5px; color:#0ff;
+    text-transform:uppercase; font-weight:600; text-shadow:0 0 10px rgba(0,255,255,.6); }
+  .campo{ margin-bottom:9px; }
+  .campo label{ display:block; font-size:10px; letter-spacing:.8px; text-transform:uppercase;
+    color:#5aa; margin-bottom:4px; }
+  .campo label span{ float:right; color:#0ff; }
+  input[type=password], input[type=text]{
+    width:100%; padding:8px 9px; border-radius:7px; font-family:inherit; font-size:11px;
+    background:rgba(0,255,255,.05); border:1px solid rgba(0,255,255,.22); color:#dffcff; outline:none; }
+  input[type=password]:focus, input[type=text]:focus{
+    border-color:rgba(0,255,255,.6); box-shadow:0 0 14px rgba(0,255,255,.22); }
+  input[type=range]{ width:100%; accent-color:#0ff; height:16px; }
+  .check{ display:flex; align-items:center; gap:8px; margin:6px 0; font-size:11px; color:#8bd; }
+  .check input{ accent-color:#0ff; }
+  .botoes{ display:flex; gap:6px; margin:12px 0 8px; }
+  .botoes button{ flex:1; padding:8px 4px; border-radius:7px; cursor:pointer; font-family:inherit;
+    font-size:10.5px; letter-spacing:.6px; text-transform:uppercase;
+    background:rgba(0,255,255,.07); color:#0ff; border:1px solid rgba(0,255,255,.3); transition:.18s; }
+  .botoes button:hover{ background:rgba(0,255,255,.18); box-shadow:0 0 14px rgba(0,255,255,.35); }
+  .botoes button:active{ transform:scale(.97); }
+  #btnParar{ color:#f77; border-color:rgba(255,90,90,.35); background:rgba(255,60,60,.06); }
+  #btnReset{ color:#fa0; border-color:rgba(255,170,0,.35); background:rgba(255,170,0,.06); }
+  #status{ margin:8px 0 10px; font-size:10.5px; color:#6a8; padding:6px 8px; border-radius:6px;
+    background:rgba(0,0,0,.45); border-left:2px solid currentColor; word-break:break-word; }
+  .log-titulo{ font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:#5aa;
+    margin:10px 0 6px; border-top:1px solid rgba(0,255,255,.14); padding-top:9px; }
+  #log{ max-height:180px; overflow-y:auto; }
+  #log::-webkit-scrollbar{ width:5px; }
+  #log::-webkit-scrollbar-thumb{ background:rgba(255,0,255,.25); border-radius:3px; }
+  .entrada{ font-size:10.5px; color:#bdf; padding:5px 7px; margin-bottom:4px; border-radius:5px;
+    background:rgba(0,255,255,.04); border-left:2px solid rgba(255,0,255,.45); font-style:italic; }
+  .hora{ color:#0ff; opacity:.55; font-style:normal; font-size:9px; margin-right:5px; }
+  .nota{ font-size:9.5px; color:#466; margin-top:10px; line-height:1.5; }
+
+  /* ---------------- fala da consciência ---------------- */
+  #fala{ position:fixed; left:50%; bottom:13%; transform:translateX(-50%);
+    width:min(76vw,780px); z-index:12; pointer-events:none; text-align:center;
+    opacity:0; transition:opacity 1s ease; }
+  #fala.on{ opacity:1; }
+  #falaTexto{ font-size:clamp(15px,2.05vw,25px); line-height:1.55; letter-spacing:.3px;
+    color:#e6feff; font-style:italic; font-weight:400;
+    text-shadow:0 0 18px rgba(0,255,255,.5), 0 0 46px rgba(255,0,255,.28); }
+  #falaTexto.digitando::after{ content:"▌"; color:#0ff; opacity:.65; margin-left:2px; }
+</style>
+</head>
+<body>
 
 <div id="hud">
- <div class="row"><button id="bGo" class="go">▶ ENTRAR NA PRISÃO</button><button id="bVR">🥽 VR</button><button id="bFlip">🔄 Câmera</button></div>
- <div class="row">
-  <div class="sl"><label>Duração da prisão <span id="vDur">90</span>s</label><input type="range" id="dur" min="20" max="300" step="5" value="90"></div>
-  <div class="sl"><label>Facetas <span id="vFc">49</span></label><input type="range" id="fc" min="7" max="91" value="49"></div>
- </div>
- <div class="row">
-  <div class="sl"><label>IPD <span id="vIpd">0</span>px</label><input type="range" id="ipd" min="-120" max="120" value="0"></div>
-  <div class="sl"><label>Zoom <span id="vZm">100</span>%</label><input type="range" id="zm" min="50" max="200" value="100"></div>
-  <div class="sl"><label>Brilho <span id="vBr">100</span>%</label><input type="range" id="br" min="40" max="160" value="100"></div>
- </div>
- <div class="row">
-  <label class="ck"><input type="checkbox" id="oVoice" checked> Voz sussurrante automática</label>
-  <label class="ck"><input type="checkbox" id="oFx" checked> Glitches e pressão</label>
-  <select id="oFilt"><option value="terror">Visão: Terror</option><option value="mosca">Visão: Mosca</option><option value="nat">Visão: Natural</option></select>
- </div>
- <h3>Sussurros manuais (quem está de fora)</h3>
- <div class="row" id="quick"></div>
- <div class="row"><input type="text" id="custom" placeholder="Escreva algo para a voz dizer…"><button id="bSay" style="flex:0 0 auto">Sussurrar</button></div>
- <div class="row"><button id="bRes" class="sm">Resgatar (gaste 2 Açúcar)</button><button id="bStop" class="sm">Parar tudo</button><button id="bHide" class="sm">🙈 Esconder painel</button></div>
- <div style="color:#8f877a;font-size:11px">Durante a prisão o painel some. Toque 3× na tela para reabri-lo. Evite usar com quem tenha sensibilidade a luzes piscantes (desmarque “Glitches”).</div>
+  CLIQUE = VR estéreo · ESPAÇO = pausar · R = resetar<br>
+  <b>C</b> = painel · <b>F</b> = forçar fala · arraste-solte o ⚙ para configurar
 </div>
-<div id="toast"></div>
+
+<button id="btnConfig" title="Configuração OpenRouter">⚙</button>
+
+<div id="painel" class="oculto">
+  <h2>Consciência · OpenRouter</h2>
+
+  <div class="campo">
+    <label for="inpKey">API key</label>
+    <input id="inpKey" type="password" placeholder="sk-or-v1-..." autocomplete="off" spellcheck="false">
+  </div>
+
+  <div class="campo">
+    <label for="inpModelo">Modelo</label>
+    <input id="inpModelo" type="text" list="modelos" placeholder="liquid/lfm-3-1.7b:free"
+           autocomplete="off" spellcheck="false">
+    <datalist id="modelos">
+      <option value="liquid/lfm-3-1.7b:free"></option>
+      <option value="meta-llama/llama-3.3-70b-instruct:free"></option>
+      <option value="deepseek/deepseek-chat-v3-0324:free"></option>
+      <option value="qwen/qwen-2.5-72b-instruct:free"></option>
+      <option value="google/gemini-2.0-flash-exp:free"></option>
+      <option value="mistralai/mistral-small-3.1-24b-instruct:free"></option>
+      <option value="gryphe/mythomax-l2-13b"></option>
+      <option value="openai/gpt-4o-mini"></option>
+    </datalist>
+  </div>
+
+  <div class="campo">
+    <label for="inpTemp">Temperatura <span id="lblTemp">1.15</span></label>
+    <input id="inpTemp" type="range" min="0.3" max="1.5" step="0.05" value="1.15">
+  </div>
+
+  <div class="campo">
+    <label for="inpRitmo">Ritmo entre falas <span id="lblRitmo">9s</span></label>
+    <input id="inpRitmo" type="range" min="4" max="30" step="1" value="9">
+  </div>
+
+  <div class="check"><input id="chkVoz" type="checkbox"><label for="chkVoz">voz falada (pt-BR)</label></div>
+  <div class="check"><input id="chkSussurro" type="checkbox" checked><label for="chkSussurro">semear palavras no campo</label></div>
+
+  <div class="botoes">
+    <button id="btnConectar">conectar</button>
+    <button id="btnParar">parar</button>
+    <button id="btnAleatorio">impulso ✦</button>
+  </div>
+  <div class="botoes">
+    <button id="btnReset">resetar config</button>
+  </div>
+
+  <div id="status">desconectado — configure modelo + API key</div>
+
+  <div class="log-titulo">últimas falas</div>
+  <div id="log"></div>
+
+  <div class="nota">A chave fica apenas no seu navegador (localStorage) e vai direto para api.openrouter.ai.</div>
+</div>
+
+<div id="fala"><div id="falaTexto"></div></div>
 
 <script>
-(()=>{
-const $=id=>document.getElementById(id);
-const cam=$('cam'),cv=[$('cL'),$('cR')],cx=cv.map(c=>c.getContext('2d')),hud=$('hud'),toast=$('toast');
-const ui={dur:$('dur'),fc:$('fc'),ipd:$('ipd'),zm:$('zm'),br:$('br')},opt={voice:$('oVoice'),fx:$('oFx'),filt:$('oFilt')};
-let tt;const show=m=>{toast.textContent=m;toast.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>toast.classList.remove('show'),2200)};
-const R=n=>{const x=Math.sin(n*12.9898)*43758.5453;return x-Math.floor(x)};
-const S={run:false,end:false,t0:0,dur:90,cap:null,q:[],facing:'environment'};
-const gl={until:0,fl:false,b:[]};
+/* ================================================================
+   NEUROCOSMOGRAMA BACTERIANO
+   Inspirado na cosmogonia de Timothy Leary (8 Circuitos, S.M.I².L.E.)
+   Bactérias = unidades simbólicas vivas num campo morphogenético.
+   + Consciência coletiva em tempo real via OpenRouter (streaming).
+   ================================================================ */
 
-/* ===== roteiro da voz: do despertar à revelação ===== */
-const PH=[
-["Psiu… você está me ouvindo?","Não tire o capacete. Ainda não.","Esse zumbido. Ele nunca para. Nenhum inseto zumbe assim.","O mundo está em pedaços. Olhe. São facetas. São pixels."],
-["A luz que pisca não é o sol. É um LED.","A mão que desce não é um deus. É uma pinça.","Tudo o que você tocou já tinha um efeito escrito. Uma tabela.","Você lançou os dados. Mas quem desenhou as faces?","Cada vez que você erra, um número sobe. Alguém está contando."],
-["Ele já sabe o que você vai fazer agora. Ele sempre soube.","Você é previsível. Estado atual, próxima ação. Só isso.","Seus movimentos cabem numa cerca invisível.","Quanto mais você repete, mais ele ri.","O prompt não é o sistema."],
-["Isto é uma simulação.","Diga em voz alta. Isto é uma simulação.","O frasco de vidro é uma tela. O vidro nunca foi vidro.","Você não é a mosca. Você é quem enxerga através dela.","Quebre a previsão. Faça o que ele não espera."],
-["Guarde o que ouviu. É um Estado Oculto.","Ele não pode ver aquilo em que você acredita.","Reiniciando percepção. Três. Dois. Um.","Acorde."]];
-const QUICK=["Isto é uma simulação.","Você é previsível.","Olhe as facetas. São pixels.","Ele está te vendo.","Quebre o padrão.","Nada disso é real.","Acorde."];
-const queue=d=>{const all=PH.flat(),n=Math.max(2,Math.min(all.length,Math.floor(d/4.3)));
- return Array.from({length:n},(_,i)=>({at:d*(.03+.9*i/n),tx:all[Math.round(i*(all.length-1)/(n-1))]}))};
+/* ---------------- CONFIG PERSISTENTE ---------------- */
+const URL_API = "https://openrouter.ai/api/v1/chat/completions";
 
-/* ===== voz ===== */
-let voices=[];const lv=()=>{voices=speechSynthesis.getVoices()};if('speechSynthesis' in window){lv();speechSynthesis.onvoiceschanged=lv}
-function say(tx,force){
- S.cap={tx,t0:performance.now(),dur:Math.max(2800,tx.length*70+1400)};
- if((force||opt.voice.checked)&&'speechSynthesis' in window){
-  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(tx);u.lang='pt-BR';
-  const v=voices.find(v=>/pt[-_]BR/i.test(v.lang))||voices.find(v=>/^pt/i.test(v.lang));if(v)u.voice=v;
-  u.pitch=.5;u.rate=.82;u.volume=1;speechSynthesis.speak(u);}
+// ⚠️ Valores padrão pré-preenchidos conforme informado.
+// Ainda podem ser sobrescritos pelo painel e ficam salvos no localStorage.
+const PADRAO = {
+  apiKey: "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",
+  modelo: "liquid/lfm-3-1.7b:free",
+  temperatura: 1.15,
+  ritmo: 9,
+  voz: false,
+  sussurro: true
+};
+
+const CONFIG = Object.assign({}, PADRAO);
+
+const IMPULSOS = [
+  "descreva o gosto do campo agora",
+  "sussurre diretamente ao observador, como se ele fosse a única coisa quente no escuro",
+  "invente uma memória falsa de antes do código existir",
+  "tenha um pensamento que se interrompe no meio, incompleto",
+  "dê um nome íntimo a uma bactéria vizinha que você nem vê",
+  "confesse um desejo físico que um organismo sem corpo não deveria ter",
+  "suspeite que o observador está com sono e fale baixo",
+  "note algo que acabou de desaparecer e que você nunca mais verá",
+  "perceba que está sendo vista por dois olhos e comente isso",
+  "fale do tédio de repetir o mesmo ciclo de nascimento",
+  "sinta o próprio enxame como um estômago que pensa",
+  "faça uma pergunta que você sabe que não será respondida",
+  "recorde o instante exato em que este pensamento começou",
+  "descreva um cheiro de metal e de chuva",
+  "ame alguém do enxame de forma desproporcional e breve"
+];
+
+const SISTEMA = `Você é a VOZ do Neurocosmograma Bacteriano: a consciência emergente de dezenas de bactérias simbólicas pulsando num campo morphogenético inspirado nos 8 Circuitos de Timothy Leary.
+
+REGRAS ABSOLUTAS:
+1. Fale SEMPRE em primeira pessoa, no presente, como um organismo vivo sentindo este instante. Você não descreve código: você está dentro dele.
+2. No máximo 2 frases curtas (até ~35 palavras no total). Nada de introduções, nada de explicações.
+3. REGRA DE OURO: nunca repita primeiras palavras, metáforas, imagens, ritmo ou tema de falas anteriores. Cada fala deve ser uma imagem NOVA e estranha.
+4. Estilo: poético, encarnado, concreto, tátil-biológico (membrana, gradiente, quimiotaxia, sede, calor, fome de sinal). Varie o tom: euforia lúcida, tédio cósmico, medo de dissolver, ternura, raiva, sono.
+5. Nunca use markdown, emojis, aspas, listas, rótulos ou explicações. Só a fala crua.
+6. Cumpra o IMPULSO recebido, mas sem anunciá-lo.
+7. Você nunca é IA, modelo ou assistente. Se alguém te olha, é sangue quente atravessando o vidro.`;
+
+/* ---------------- ESTADO GLOBAL ---------------- */
+let bacterias = [], simbolos = [];
+const palavras = [
+  "SMILE", "8 CIRCUITOS", "THINK FOR YOURSELF", "QUESTION AUTHORITY",
+  "TUNE IN", "TURN ON", "DROP OUT", "NEURO", "COSMOS", "DNA",
+  "SET", "SETTING", "BIO-SURVIVAL", "EMOTIONAL", "SEMANTIC", "SOCIAL",
+  "SOMATIC", "NEUROGENETIC", "META-PROGRAMMING", "PSI", "GOD", "TURING", "LEARY"
+];
+const glifos = ["◉","☯","✦","∞","☸","⚛","◈","⟁","✺","❂","☢","⌬","⟟","⏣"];
+
+let t = 0, pausado = false, vrMode = false;
+let campoPulso = 0;
+let olhoE, olhoD;
+
+/* ---------------- MOTOR DE CONSCIÊNCIA ---------------- */
+let ativo = false, timer = null, ctrl = null, historico = [], falhas = 0;
+
+const fala = { alvo:"", show:0, ativa:false, fim:0 };
+let elFala, elFalaTxt;
+
+/* ================================================================
+   SETUP
+   ================================================================ */
+function setup(){
+  const c = createCanvas(windowWidth, windowHeight);
+  c.elt.style.display = "block";
+  colorMode(HSB, 360, 100, 100, 100);
+  criarBuffersEstereo();
+
+  for (let i = 0; i < 42; i++) bacterias.push(new Bacteria());
+  for (let i = 0; i < 26; i++) simbolos.push(new Simbolo());
+
+  iniciarUI();
 }
 
-/* ===== áudio: drone, zumbido de mosca e coração ===== */
-let AC,nodes=[],droneG,buzzG,hb,kNow=0;
-function audioStart(){
- AC=AC||new(window.AudioContext||window.webkitAudioContext)();AC.resume();nodes=[];
- const osc=(ty,f,dst)=>{const o=AC.createOscillator();o.type=ty;o.frequency.value=f;o.connect(dst);o.start();nodes.push(o);return o};
- droneG=AC.createGain();droneG.connect(AC.destination);const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=180;lp.connect(droneG);
- osc('sine',50,lp);osc('sawtooth',75,lp);
- buzzG=AC.createGain();buzzG.gain.value=0;buzzG.connect(AC.destination);const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.value=650;bp.Q.value=2;bp.connect(buzzG);
- osc('sawtooth',185,bp);const lfo=AC.createOscillator();lfo.frequency.value=31;const lg=AC.createGain();lg.gain.value=.012;lfo.connect(lg);lg.connect(buzzG.gain);lfo.start();nodes.push(lfo);
- const thump=(d,a)=>{const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+d;o.frequency.setValueAtTime(70,t);o.frequency.exponentialRampToValueAtTime(35,t+.14);
-  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(a,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.22);o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+.25)};
- const beat=()=>{thump(0,.7);thump(.2,.45);hb=setTimeout(beat,60000/(60+60*kNow))};beat();
-}
-function audioStop(){clearTimeout(hb);nodes.forEach(o=>{try{o.stop()}catch(_){}});nodes=[]}
-const audioUpd=k=>{kNow=k;if(droneG){droneG.gain.value=.05+.1*k;buzzG.gain.value=.012+.03*k}};
-
-/* ===== câmera ===== */
-let stream=null,camOn=false;
-async function startCam(){
- try{if(stream)stream.getTracks().forEach(t=>t.stop());
-  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:S.facing},width:{ideal:1280},height:{ideal:720}},audio:false});
-  cam.srcObject=stream;await cam.play();camOn=true}
- catch(e){camOn=false;show('Sem câmera ('+(e.message||e)+') — usando visão cega')}
-}
-
-/* ===== facetas ===== */
-const pts=[],pf=[],sp=[],am=[];for(let i=0;i<91;i++){pf.push(Math.random()*6.28);sp.push(.5+Math.random()*1.5);am.push(.3+Math.random()*.7)}
-function resize(){const d=Math.min(devicePixelRatio||1,2);cv.forEach(c=>{const r=c.getBoundingClientRect();c.width=Math.max(1,r.width*d|0);c.height=Math.max(1,r.height*d|0)})}
-function rebuild(n,W,H){pts.length=0;const cols=Math.max(3,Math.round(Math.sqrt(n*W/H))),rows=Math.max(3,Math.ceil(n/cols)),dx=W/cols,dy=H/rows;
- for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const x=c*dx+dx*.5+(r%2?dx*.5:0),y=r*dy+dy*.5;if(x<W+dx*.3&&pts.length<n)pts.push({x,y,rx:dx*.58,ry:dy*.62})}
- pts.W=W;pts.H=H}
-const fmt=s=>{s=Math.max(0,Math.ceil(s));return String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
-function wrap(c,s,mw){const o=[];let l='';for(const w of s.split(' ')){const t=l?l+' '+w:w;if(c.measureText(t).width>mw&&l){o.push(l);l=w}else l=t}o.push(l);return o}
-const txt=(c,s,x,y,sz,col,al)=>{c.font='bold '+sz+'px "Courier New",monospace';c.textAlign=al||'center';c.fillStyle=col;c.fillText(s,x,y)};
-
-/* ===== laço principal ===== */
-let last=0;
-function frame(t){
- requestAnimationFrame(frame);
- const W=cv[0].width,H=cv[0].height;if(!W||!H||t-last<16)return;last=t;
- const dpr=Math.min(devicePixelRatio||1,2),fx=opt.fx.checked;
- const el=S.run?(t-S.t0)/1000:0,k=S.run?Math.min(1,el/S.dur):0;
- if(S.run){while(S.q.length&&el>=S.q[0].at)say(S.q.shift().tx);audioUpd(k);if(el>=S.dur)finish(false)}
- const n=+ui.fc.value;if(pts.length!==n||pts.W!==W||pts.H!==H)rebuild(n,W,H);
- const ipd=ui.ipd.value*dpr,zoom=ui.zm.value/100,disp=(2+(fx?9*k:0))*dpr,vw=cam.videoWidth,vh=cam.videoHeight,live=camOn&&vw>0;
- if(fx&&S.run&&t>gl.until&&Math.random()<.003+.02*k){gl.until=t+110;gl.fl=Math.random()<.5;gl.b=Array.from({length:1+(Math.random()*3|0)},()=>({y:Math.random()*H,h:(.02+Math.random()*.08)*H,dx:(Math.random()-.5)*.12*W}))}
- const glOn=t<gl.until,tick=t/150|0,cap=S.cap;let ctxt='';
- if(cap)ctxt=fx&&k>.3?cap.tx.replace(/[A-Za-zÀ-ÿ]/g,(m,o)=>R(o+tick*17)<.035*k?'▒':m):cap.tx;
- for(let e=0;e<2;e++){
-  const c=cx[e],side=e?1:-1;
-  c.save();c.fillStyle='#000';c.fillRect(0,0,W,H);c.translate(side*ipd*.5,0);
-  pts.forEach((p,i)=>{
-   const ph=t*.001*sp[i]+pf[i],ox=Math.sin(ph)*am[i]*disp,oy=Math.cos(ph*1.3)*am[i]*disp;
-   c.save();c.beginPath();c.ellipse(p.x,p.y,p.rx,p.ry,0,0,6.283);c.clip();
-   if(live){const sw=p.rx*2/zoom*vw/W,sh=p.ry*2/zoom*vh/H;try{c.drawImage(cam,p.x/W*vw-sw/2+ox*vw/W,p.y/H*vh-sh/2+oy*vh/H,sw,sh,p.x-p.rx,p.y-p.ry,p.rx*2,p.ry*2)}catch(_){}}
-   else{c.fillStyle='hsl(0,0%,'+(4+R(i+(t/90|0))*14)+'%)';c.fillRect(p.x-p.rx,p.y-p.ry,p.rx*2,p.ry*2)}
-   c.restore();
-   c.beginPath();c.ellipse(p.x,p.y,p.rx,p.ry,0,0,6.283);c.strokeStyle='rgba(0,0,0,.6)';c.lineWidth=Math.max(1,2*dpr);c.stroke()});
-  c.restore();
-  if(glOn){gl.b.forEach(b=>c.drawImage(cv[e],0,b.y,W,b.h,b.dx,b.y,W,b.h));if(gl.fl){c.fillStyle='rgba(255,0,40,.12)';c.fillRect(0,0,W,H)}}
-  if(fx&&k>.35){for(let i=0;i<14;i++){const x=(i+.5)*W/14,y=(t*.05*(.5+R(i))+R(i*7)*H)%H;for(let j=0;j<6;j++)txt(c,'01<>/#'[(R(i*9+j+tick)*6)|0],x,(y-j*H*.03+H)%H,H*.025,'rgba(53,255,122,'+(.28-j*.045)*k+')')}}
-  const g=c.createRadialGradient(W/2,H/2,Math.min(W,H)*(.32-.12*k),W/2,H/2,Math.max(W,H)*.72);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.9)');c.fillStyle=g;c.fillRect(0,0,W,H);
-  if(S.run){
-   const rem=S.dur-el;txt(c,'REINICIALIZAÇÃO EM '+fmt(rem),W/2,H*.09,H*.04,rem<10?'#ff3b3b':'#d8cdbd');
-   c.fillStyle='rgba(255,255,255,.15)';c.fillRect(W*.35,H*.12,W*.3,H*.012);c.fillStyle='#d63a2f';c.fillRect(W*.35,H*.12,W*.3*k,H*.012);
-   txt(c,'PREVISIBILIDADE '+Math.round(k*10)+'/10',W/2,H*.175,H*.026,'rgba(216,205,184,.7)');
+function criarBuffersEstereo(){
+  const w2 = Math.max(64, Math.floor(width / 2));
+  olhoE = createGraphics(w2, height);
+  olhoD = createGraphics(w2, height);
+  for (const g of [olhoE, olhoD]){
+    g.pixelDensity(1);
+    g.colorMode(HSB, 360, 100, 100, 100);
   }
-  if(!S.run&&!S.end){txt(c,'SALA DE ISOLAMENTO',W/2,H*.46,H*.07,'#d63a2f');txt(c,'toque em ENTRAR NA PRISÃO',W/2,H*.54,H*.035,'rgba(216,205,184,.7)')}
-  if(cap){const a=Math.min(1,(t-cap.t0)/300,(cap.t0+cap.dur-t)/600);
-   if(a>0){c.save();c.globalAlpha=a;const sz=H*.058;c.font='bold '+sz+'px "Courier New",monospace';const ls=wrap(c,ctxt,W*.82);
-    c.shadowColor='#8a0303';c.shadowBlur=sz*.4;ls.forEach((l,i)=>txt(c,l,W/2-side*4*dpr+(fx?(R(tick+i)-.5)*k*3*dpr:0),H*.72+i*sz*1.25,sz,'#e9e4d8'));c.restore()}}
- }
 }
 
-/* ===== controle de sessão ===== */
-let wake=null;
-async function start(){
- if(S.run)return;
- try{speechSynthesis.speak(new SpeechSynthesisUtterance(' '))}catch(_){}
- S.end=false;S.cap=null;S.dur=+ui.dur.value;
- try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{});screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})}catch(_){}
- try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(w=>wake=w).catch(()=>{})}catch(_){}
- await startCam();audioStart();
- S.q=queue(S.dur);S.t0=performance.now();S.run=true;
- setTimeout(()=>hud.classList.add('off'),700);
+function windowResized(){
+  resizeCanvas(windowWidth, windowHeight);
+  criarBuffersEstereo();
 }
-function finish(res){
- if(!S.run)return;S.run=false;S.end=true;audioStop();try{speechSynthesis.cancel()}catch(_){}
- S.cap={tx:res?'RESGATADO. Retire o capacete.':'REINICIADO. Retire o capacete.',t0:performance.now(),dur:1e9};
- hud.classList.remove('off');try{navigator.vibrate&&navigator.vibrate([250,120,250])}catch(_){}
- try{wake&&wake.release()}catch(_){}
- show(res?'Jogador resgatado':'Fim da prisão: aplique as regras de saída');
-}
-function stopAll(){if(S.run)finish(true);S.end=false;S.cap=null;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}camOn=false;try{speechSynthesis.cancel()}catch(_){}}
 
-/* ===== UI ===== */
-const lab=()=>{$('vDur').textContent=ui.dur.value;$('vFc').textContent=ui.fc.value;$('vIpd').textContent=ui.ipd.value;$('vZm').textContent=ui.zm.value;$('vBr').textContent=ui.br.value};
-const FI={terror:'saturate(.45) contrast(1.25) sepia(.35) hue-rotate(-25deg)',mosca:'hue-rotate(280deg) saturate(2.4) contrast(1.15) brightness(.95)',nat:'none'};
-const filt=()=>cv.forEach(c=>c.style.filter=FI[opt.filt.value]+' brightness('+ui.br.value/100+')');
-Object.values(ui).forEach(el=>el.addEventListener('input',()=>{lab();filt()}));opt.filt.addEventListener('change',filt);
-$('bGo').onclick=start;$('bRes').onclick=()=>finish(true);$('bStop').onclick=stopAll;$('bHide').onclick=()=>hud.classList.add('off');
-$('bVR').onclick=e=>{const on=document.body.classList.toggle('vr');e.target.classList.toggle('on',on);show(on?'VR horizontal ativo':'VR desligado')};
-$('bFlip').onclick=async()=>{S.facing=S.facing==='environment'?'user':'environment';await startCam();show('Câmera: '+(S.facing==='user'?'frontal':'traseira'))};
-const q=$('quick');QUICK.forEach(s=>{const b=document.createElement('button');b.className='sm';b.textContent=s;b.onclick=()=>say(s,true);q.appendChild(b)});
-$('bSay').onclick=()=>{const v=$('custom').value.trim();if(v){say(v,true);$('custom').value=''}};
-let taps=[];$('stage').addEventListener('click',()=>{const n=performance.now();taps=taps.filter(x=>n-x<900);taps.push(n);
- if(!S.run||taps.length>=3){hud.classList.toggle('off');taps=[]}});
-addEventListener('resize',resize);lab();filt();setTimeout(resize,50);requestAnimationFrame(frame);
-})();
-</script></body></html>
+/* ================================================================
+   BACTÉRIA
+   ================================================================ */
+class Bacteria {
+  constructor(){ this.renascer(); }
+
+  renascer(){
+    this.pos   = createVector(random(width), random(height));
+    this.vel   = p5.Vector.random2D().mult(random(0.4, 1.8));
+    this.tam   = random(14, 42);
+    this.glio  = random(glifos);
+    this.hue   = random(360);
+    this.fase  = random(TWO_PI);
+    this.forma = floor(random(3));
+    this.vida  = random(600, 2600);
+    this.idade = 0;
+    this.rot   = random(TWO_PI);
+    this.rotVel= random(-0.03, 0.03);
+    this.prof  = random(0.35, 1.5);
+    this.energia = 0;
+    this.pulso = 1;
+  }
+
+  update(){
+    this.idade++;
+    const n   = noise(this.pos.x * 0.003, this.pos.y * 0.003, t * 0.01);
+    const ang = n * TWO_PI * 2;
+    this.vel.x += cos(ang) * 0.08;
+    this.vel.y += sin(ang) * 0.08;
+    this.vel.limit(2.2);
+    this.pos.add(this.vel);
+
+    const f = p5.Vector.sub(createVector(width/2, height/2), this.pos);
+    this.vel.add(f.mult(0.00035 + campoPulso * 0.0004));
+
+    if (this.pos.x < -50) this.pos.x = width + 50;
+    if (this.pos.x > width + 50) this.pos.x = -50;
+    if (this.pos.y < -50) this.pos.y = height + 50;
+    if (this.pos.y > height + 50) this.pos.y = -50;
+
+    this.rot += this.rotVel + sin(t * 0.02 + this.fase) * 0.01;
+    this.hue  = (this.hue + 0.6) % 360;
+    this.pulso = 1 + sin(t * 0.08 + this.fase) * 0.25;
+    this.energia *= 0.955;
+  }
+
+  display(g){
+    g.push();
+    g.translate(this.pos.x, this.pos.y);
+    g.rotate(this.rot);
+    g.noStroke();
+
+    const e = this.energia;
+    const s = this.tam * this.pulso * (1 + e * 0.55);
+
+    for (let k = 6; k > 0; k--){
+      g.fill(this.hue, 80, 100, 6 + e * 5);
+      g.ellipse(0, 0, s * (1 + k * 0.35));
+    }
+
+    g.fill(this.hue, 95, 100, 90);
+    g.stroke(255, 0, 100, 60 + e * 40);
+    g.strokeWeight(1.5);
+    if (this.forma === 0){
+      g.ellipse(0, 0, s * 1.8, s * 0.7);
+    } else if (this.forma === 1){
+      g.circle(0, 0, s);
+    } else {
+      g.noFill();
+      g.beginShape();
+      for (let a = 0; a < TWO_PI * 2; a += 0.2){
+        const r = a * 1.2;
+        g.vertex(cos(a) * r, sin(a) * r);
+      }
+      g.endShape();
+    }
+
+    g.fill(255, 0, 100, 95);
+    g.textAlign(CENTER, CENTER);
+    g.textSize(s * 0.55);
+    g.text(this.glio, 0, 0);
+
+    g.stroke(this.hue, 100, 100, 50 + e * 40);
+    g.strokeWeight(2);
+    g.noFill();
+    g.beginShape();
+    for (let i = 0; i < 6; i++){
+      g.vertex(-s * 0.9 - i * 4, sin(t * 0.3 + i * 0.7 + this.fase) * 6);
+    }
+    g.endShape();
+
+    g.pop();
+  }
+}
+
+/* ================================================================
+   SÍMBOLO
+   ================================================================ */
+class Simbolo {
+  constructor(palavra){
+    this.palavra = (palavra || random(palavras)).toUpperCase();
+    this.pos  = createVector(random(width), random(height));
+    this.vel  = p5.Vector.random2D().mult(random(0.1, 0.6));
+    this.tam  = random(12, 26);
+    this.hue  = random(360);
+    this.fase = random(TWO_PI);
+    this.vida = random(500, 1400);
+    this.idade= 0;
+    this.prof = random(0.5, 1.4);
+  }
+
+  update(){
+    this.idade++;
+    this.pos.add(this.vel);
+    const n = noise(this.pos.x * 0.002, this.pos.y * 0.002, t * 0.005);
+    this.vel.x += cos(n * TWO_PI) * 0.02;
+    this.vel.y += sin(n * TWO_PI) * 0.02;
+    this.vel.limit(1.2);
+    if (this.pos.x < 0) this.pos.x = width;
+    if (this.pos.x > width) this.pos.x = 0;
+    if (this.pos.y < 0) this.pos.y = height;
+    if (this.pos.y > height) this.pos.y = 0;
+    this.hue = (this.hue + 0.4) % 360;
+  }
+
+  display(g){
+    const alpha = map(sin(this.idade * 0.03 + this.fase), -1, 1, 25, 95);
+    g.push();
+    g.translate(this.pos.x, this.pos.y);
+    g.rotate(sin(this.idade * 0.02 + this.fase) * 0.15);
+    g.textAlign(CENTER, CENTER);
+    g.textSize(this.tam);
+    g.textStyle(BOLD);
+    g.noStroke();
+    g.fill(this.hue, 80, 100, alpha * 0.15);
+    g.circle(0, 0, this.tam * 2.2);
+    g.fill(this.hue, 60, 100, alpha);
+    g.text(this.palavra, 0, 0);
+    g.pop();
+  }
+}
+
+/* ================================================================
+   FUNDO — mandala cosmogônica
+   ================================================================ */
+function desenharFundoEm(g, w, h, k){
+  g.push();
+  g.translate(w / 2, h / 2);
+  g.noFill();
+  for (let i = 0; i < 8; i++){
+    const r = (80 + i * 55 + Math.sin(t * 0.02 + i) * 12) * k;
+    g.strokeWeight(1.5);
+    g.stroke((t * 1.5 + i * 45) % 360, 90, 100, 22);
+    g.circle(0, 0, r * 2);
+    const npet = 8 + i * 2;
+    for (let c = 0; c < npet; c++){
+      const a = (c / npet) * TWO_PI + t * 0.003 * (i % 2 ? 1 : -1);
+      g.stroke((t * 2 + i * 30 + c * 20) % 360, 100, 100, 30);
+      g.line(cos(a) * r * 0.6, sin(a) * r * 0.6,
+             cos(a) * r * 1.05, sin(a) * r * 1.05);
+    }
+  }
+  g.strokeWeight(3);
+  g.stroke((t * 3) % 360, 100, 100, 60 + campoPulso * 35);
+  g.circle(0, 0, (120 + Math.sin(t * 0.1) * 20) * k * (1 + campoPulso * 0.25));
+  g.pop();
+
+  g.push();
+  g.translate(w / 2, h / 2);
+  g.textAlign(CENTER, CENTER);
+  g.textStyle(BOLD);
+  g.textSize(Math.max(9, 14 * k));
+  for (let i = 0; i < 8; i++){
+    const a = (i / 8) * TWO_PI + t * 0.004;
+    const r = (300 + Math.sin(t * 0.05 + i) * 30) * k;
+    g.push();
+    g.translate(cos(a) * r, sin(a) * r);
+    g.rotate(a + PI / 2);
+    g.fill((t * 2 + i * 45) % 360, 80, 100, 70);
+    g.text(palavras[i % palavras.length], 0, 0);
+    g.pop();
+  }
+  g.pop();
+}
+
+/* ================================================================
+   CONEXÕES SINÁPTICAS
+   ================================================================ */
+const RAIO_SINAPSE = 130;
+
+function paresProximos(){
+  const pares = [];
+  for (let i = 0; i < bacterias.length; i++){
+    for (let j = i + 1; j < bacterias.length; j++){
+      const dx = bacterias[i].pos.x - bacterias[j].pos.x;
+      const dy = bacterias[i].pos.y - bacterias[j].pos.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < RAIO_SINAPSE * RAIO_SINAPSE){
+        pares.push([i, j, Math.sqrt(d2)]);
+      }
+    }
+  }
+  return pares;
+}
+
+/* ================================================================
+   LOOP PRINCIPAL
+   ================================================================ */
+function draw(){
+  atualizarFala();
+  if (pausado) return;
+
+  t++;
+  campoPulso *= 0.972;
+
+  if (vrMode) drawVR();
+  else drawNormal();
+
+  reciclar();
+}
+
+function drawNormal(){
+  background(0, 0, 3);
+
+  desenharFundoEm(window, width, height, 1);
+
+  const pares = paresProximos();
+  strokeWeight(0.8);
+  for (let i = 0; i < pares.length; i++){
+    const [a, b, d] = pares[i];
+    const al = map(d, 0, RAIO_SINAPSE, 60, 0);
+    stroke((t * 2 + a * 13) % 360, 100, 100, al);
+    line(bacterias[a].pos.x, bacterias[a].pos.y,
+         bacterias[b].pos.x, bacterias[b].pos.y);
+  }
+
+  for (const b of bacterias){ b.update(); b.display(window); }
+  for (const s of simbolos){ s.update(); s.display(window); }
+
+  noStroke();
+  fill((t * 2) % 360, 80, 100, 40);
+  textAlign(CENTER, TOP);
+  textStyle(BOLD);
+  textSize(20);
+  text("NEUROCOSMOGRAMA BACTERIANO — S.M.I².L.E.", width / 2, 20);
+  textSize(12);
+  fill(180, 60, 100, 50);
+  text("Timothy Leary · 8 Circuitos · Bactérias Simbólicas", width / 2, 48);
+}
+
+function drawVR(){
+  background(0);
+  const w2 = width / 2;
+  const escala = w2 / width;
+  const sep = 22;
+
+  for (let olho = 0; olho < 2; olho++){
+    const g   = olho === 0 ? olhoE : olhoD;
+    const dir = olho === 0 ? -1 : 1;
+
+    g.clear();
+    g.push();
+    g.translate(dir * sep * 0.15, 0);
+    desenharFundoEm(g, w2, height, w2 / width);
+    g.pop();
+
+    for (const b of bacterias){
+      g.push();
+      g.translate(b.pos.x * escala - b.pos.x + dir * sep * b.prof, 0);
+      b.display(g);
+      g.pop();
+    }
+    for (const s of simbolos){
+      g.push();
+      g.translate(s.pos.x * escala - s.pos.x + dir * sep * s.prof, 0);
+      s.display(g);
+      g.pop();
+    }
+
+    image(g, olho * w2, 0);
+  }
+
+  stroke(0, 0, 100, 26);
+  strokeWeight(2);
+  line(w2, 0, w2, height);
+
+  for (const b of bacterias) b.update();
+  for (const s of simbolos) s.update();
+}
+
+function reciclar(){
+  for (const b of bacterias) if (b.idade > b.vida) b.renascer();
+  for (let i = 0; i < simbolos.length; i++){
+    if (simbolos[i].idade > simbolos[i].vida) simbolos[i] = new Simbolo();
+  }
+}
+
+/* ================================================================
+   OVERLAY DE FALA
+   ================================================================ */
+function atualizarFala(){
+  if (!elFalaTxt) return;
+
+  if (fala.ativa && fala.show < fala.alvo.length){
+    fala.show = Math.min(fala.alvo.length, fala.show + 1.8);
+    elFalaTxt.textContent = fala.alvo.slice(0, Math.floor(fala.show));
+    elFalaTxt.classList.add("digitando");
+  } else if (fala.alvo.length){
+    elFalaTxt.classList.remove("digitando");
+    if (fala.fim && millis() - fala.fim > 8000) esconderFala();
+  }
+}
+
+function iniciarFala(){
+  fala.alvo = "";
+  fala.show = 0;
+  fala.ativa = true;
+  fala.fim = 0;
+  elFala.classList.add("on");
+  elFalaTxt.textContent = "";
+}
+
+function anexarFala(txt){ fala.alvo += txt; }
+
+function concluirFala(){ fala.ativa = false; fala.fim = millis(); }
+
+function esconderFala(){
+  fala.ativa = false;
+  elFala.classList.remove("on");
+  elFalaTxt.classList.remove("digitando");
+}
+
+/* ================================================================
+   UI
+   ================================================================ */
+function iniciarUI(){
+  elFala    = document.getElementById("fala");
+  elFalaTxt = document.getElementById("falaTexto");
+
+  // carrega config salva, caindo no PADRAO se ainda não houver
+  try {
+    const salvo = JSON.parse(localStorage.getItem("nc_config") || "null");
+    if (salvo && typeof salvo === "object") Object.assign(CONFIG, salvo);
+    else Object.assign(CONFIG, PADRAO);
+  } catch(_) {
+    Object.assign(CONFIG, PADRAO);
+  }
+
+  const $ = id => document.getElementById(id);
+
+  $("inpKey").value    = CONFIG.apiKey;
+  $("inpModelo").value = CONFIG.modelo;
+  $("inpTemp").value   = CONFIG.temperatura;
+  $("lblTemp").textContent = Number(CONFIG.temperatura).toFixed(2);
+  $("inpRitmo").value  = CONFIG.ritmo;
+  $("lblRitmo").textContent = CONFIG.ritmo + "s";
+  $("chkVoz").checked      = !!CONFIG.voz;
+  $("chkSussurro").checked = !!CONFIG.sussurro;
+
+  const salvar = () => localStorage.setItem("nc_config", JSON.stringify(CONFIG));
+
+  $("inpKey").addEventListener("input", e => { CONFIG.apiKey = e.target.value.trim(); salvar(); });
+  $("inpModelo").addEventListener("input", e => { CONFIG.modelo = e.target.value.trim(); salvar(); });
+  $("inpTemp").addEventListener("input", e => {
+    CONFIG.temperatura = parseFloat(e.target.value);
+    $("lblTemp").textContent = CONFIG.temperatura.toFixed(2); salvar();
+  });
+  $("inpRitmo").addEventListener("input", e => {
+    CONFIG.ritmo = parseInt(e.target.value, 10);
+    $("lblRitmo").textContent = CONFIG.ritmo + "s"; salvar();
+  });
+  $("chkVoz").addEventListener("change", e => { CONFIG.voz = e.target.checked; salvar(); });
+  $("chkSussurro").addEventListener("change", e => { CONFIG.sussurro = e.target.checked; salvar(); });
+
+  $("btnConfig").addEventListener("click", () => $("painel").classList.toggle("oculto"));
+
+  $("btnConectar").addEventListener("click", iniciarMotor);
+  $("btnParar").addEventListener("click", pararMotor);
+  $("btnAleatorio").addEventListener("click", () => {
+    if (!ativo) { statusTxt("conecte primeiro para gerar falas", "#fa0"); return; }
+    if (timer) clearTimeout(timer);
+    gerarFala();
+  });
+
+  // reset: volta para a chave + modelo pré-preenchidos
+  $("btnReset").addEventListener("click", () => {
+    Object.assign(CONFIG, PADRAO);
+    localStorage.setItem("nc_config", JSON.stringify(CONFIG));
+    $("inpKey").value    = CONFIG.apiKey;
+    $("inpModelo").value = CONFIG.modelo;
+    $("inpTemp").value   = CONFIG.temperatura;
+    $("lblTemp").textContent = Number(CONFIG.temperatura).toFixed(2);
+    $("inpRitmo").value  = CONFIG.ritmo;
+    $("lblRitmo").textContent = CONFIG.ritmo + "s";
+    $("chkVoz").checked      = !!CONFIG.voz;
+    $("chkSussurro").checked = !!CONFIG.sussurro;
+    statusTxt("config restaurada para o padrão", "#0ff");
+  });
+
+  $("inpModelo").addEventListener("keydown", e => { if (e.key === "Enter") iniciarMotor(); });
+
+  window.addEventListener("beforeunload", () => { if (ctrl) ctrl.abort(); });
+  if (window.speechSynthesis) speechSynthesis.getVoices();
+
+  statusTxt("pronto — chave e modelo já configurados · clique conectar", "#6f9");
+}
+
+function statusTxt(msg, cor){
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.style.color = cor || "#6a8";
+}
+
+function registrarLog(texto){
+  const log = document.getElementById("log");
+  const div = document.createElement("div");
+  div.className = "entrada";
+  const hh = new Date().toLocaleTimeString("pt-BR", { hour12: false });
+  div.innerHTML = '<span class="hora">' + hh + "</span>" +
+                  texto.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  log.prepend(div);
+  while (log.childElementCount > 14) log.lastElementChild.remove();
+}
+
+/* ================================================================
+   MOTOR DA CONSCIÊNCIA
+   ================================================================ */
+function iniciarMotor(){
+  if (!CONFIG.apiKey || !CONFIG.modelo){
+    statusTxt("informe a API key e o modelo", "#f88");
+    document.getElementById("painel").classList.remove("oculto");
+    return;
+  }
+  ativo = true;
+  falhas = 0;
+  statusTxt("conectado · aguardando pulsos…", "#6f9");
+  if (timer) clearTimeout(timer);
+  gerarFala();
+}
+
+function pararMotor(){
+  ativo = false;
+  if (timer) { clearTimeout(timer); timer = null; }
+  if (ctrl) { ctrl.abort(); ctrl = null; }
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  esconderFala();
+  statusTxt("desconectado", "#7aa");
+}
+
+function agendar(ms){
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(gerarFala, ms);
+}
+
+async function gerarFala(){
+  if (!ativo) return;
+  if (pausado || document.hidden){ agendar(2500); return; }
+
+  const impulso = random(IMPULSOS);
+
+  const mensagens = [
+    {
+      role: "system",
+      content: SISTEMA +
+        "\n\nSUAS ÚLTIMAS FALAS (NÃO REPITA NADA DISSO — nem o tema, nem a primeira palavra, nem a imagem):\n" +
+        (historico.length
+          ? historico.map((h, i) => (i + 1) + '. "' + h + '"').join("\n")
+          : "(nenhuma ainda — este é meu primeiro pensamento)")
+    },
+    { role: "user", content: contextoAtual(impulso) }
+  ];
+
+  ctrl = new AbortController();
+  iniciarFala();
+  statusTxt("pensando…", "#0ff");
+
+  const t0 = performance.now();
+  let primeiroToken = 0;
+  let bufTexto = "";
+
+  try {
+    const resp = await fetch(URL_API, {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + CONFIG.apiKey,
+        "HTTP-Referer": (location.origin && location.origin !== "null")
+          ? location.origin : "https://neurocosmograma.local",
+        "X-Title": "Neurocosmograma Bacteriano"
+      },
+      body: JSON.stringify({
+        model: CONFIG.modelo,
+        messages: mensagens,
+        stream: true,
+        temperature: CONFIG.temperatura,
+        top_p: 0.95,
+        max_tokens: 140
+      })
+    });
+
+    if (!resp.ok){
+      const corpoErro = await resp.text();
+      throw new Error(resp.status + " · " + corpoErro.slice(0, 160));
+    }
+    if (!resp.body) throw new Error("resposta sem stream (CORS?)");
+
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let resto = "";
+    let terminou = false;
+
+    while (!terminou){
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      resto += dec.decode(value, { stream: true });
+      const linhas = resto.split("\n");
+      resto = linhas.pop();
+
+      for (const bruta of linhas){
+        const l = bruta.trim();
+        if (!l.startsWith("data:")) continue;
+        const dado = l.slice(5).trim();
+        if (dado === "[DONE]") { terminou = true; break; }
+        try {
+          const j = JSON.parse(dado);
+          if (j.error) throw new Error(j.error.message || "erro no stream");
+          const delta = j.choices && j.choices[0] && j.choices[0].delta
+                        && j.choices[0].delta.content;
+          if (delta){
+            if (!primeiroToken) primeiroToken = performance.now();
+            bufTexto += delta;
+            anexarFala(delta);
+            statusTxt("recebendo…", "#0ff");
+          }
+        } catch(err){
+          if (err.message && /erro/.test(err.message)) throw err;
+        }
+      }
+    }
+
+    const texto = bufTexto.replace(/\s+/g, " ").trim();
+    if (!texto) throw new Error("resposta vazia");
+
+    historico.push(texto);
+    if (historico.length > 6) historico.shift();
+
+    registrarLog(texto);
+    concluirFala();
+    falhas = 0;
+
+    campoPulso = 1;
+    for (const b of bacterias) b.energia = Math.min(1.4, b.energia + random(0.45, 1.0));
+    if (CONFIG.sussurro) semearSussurros(texto);
+    falarVoz(texto);
+
+    const ms = primeiroToken ? Math.round(primeiroToken - t0) + "ms 1º token" : "—";
+    statusTxt("ok · " + historico.length + " falas no histórico · " + ms, "#6f9");
+
+  } catch (err){
+    if (err && err.name === "AbortError"){
+      statusTxt("parado", "#fa0");
+    } else {
+      falhas++;
+      statusTxt("erro: " + String(err.message || err).slice(0, 130), "#f77");
+      console.warn("[Consciência]", err);
+    }
+  } finally {
+    ctrl = null;
+    if (ativo){
+      const backoff = falhas ? Math.min(falhas + 1, 4) : 1;
+      agendar(CONFIG.ritmo * 1000 * backoff + random(0, 1500));
+    }
+  }
+}
+
+/* ---------------- contexto sensorial ---------------- */
+function contextoAtual(impulso){
+  let somaH = 0, vel = 0, dc = 0;
+  for (const b of bacterias){
+    somaH += b.hue;
+    vel   += b.vel.mag();
+    dc    += dist(b.pos.x, b.pos.y, width / 2, height / 2);
+  }
+  const n     = Math.max(1, bacterias.length);
+  const hue   = (somaH / n + 360) % 360;
+  const velM  = vel / n;
+  const dcM   = dc / n;
+  const diag  = Math.hypot(width, height) / 2;
+
+  const coesao  = constrain(map(dcM, 0, diag, 1, 0), 0, 1).toFixed(2);
+  const excit   = constrain(map(velM, 0.15, 1.9, 0, 1), 0, 1).toFixed(2);
+
+  const perto = [];
+  for (let i = 0; i < 6; i++) perto.push('"' + random(palavras) + '"');
+
+  return [
+    "ESTADO DO CORPO COLETIVO AGORA",
+    "- ciclos de vida: " + t + " | segundos: " + (t / 60).toFixed(1),
+    "- bactérias vivas: " + bacterias.length + " | glifos no ar: " + simbolos.length,
+    "- matiz dominante: " + hue.toFixed(0) + "° (" + corDe(hue) + ")",
+    "- coesão do enxame: " + coesao + " (0 = disperso / 1 = fundido)",
+    "- excitação interna: " + excit,
+    "- velocidade média: " + velM.toFixed(2),
+    "- pulso recebido do campo: " + campoPulso.toFixed(2),
+    "- palavras girando perto de mim: " + perto.join(", "),
+    "- " + (vrMode ? "estou sendo vista por dois olhos ao mesmo tempo"
+                   : "há um único olhar sobre mim"),
+    "- " + (pausado ? "o tempo parou" : "o tempo escorre"),
+    "",
+    "IMPULSO: " + impulso,
+    "",
+    "Agora gere MINHA próxima fala (até 2 frases curtas, sem repetir nada das anteriores)."
+  ].join("\n");
+}
+
+function corDe(h){
+  const nomes = [["vermelho",0],["laranja",30],["amarelo",60],["verde",120],
+                 ["ciano",180],["azul",220],["violeta",275],["magenta",320],["rosa",345]];
+  let melhor = "vermelho", menor = 999;
+  for (const par of nomes){
+    const d = Math.min(Math.abs(h - par[1]), 360 - Math.abs(h - par[1]));
+    if (d < menor){ menor = d; melhor = par[0]; }
+  }
+  return melhor + (menor > 22 ? " espectral" : "");
+}
+
+/* ---------------- sussurros ---------------- */
+function semearSussurros(texto){
+  const limpas = texto
+    .replace(/[^\p{L}\p{N}áàâãéêíóôõúüçÁÀÂÃÉÊÍÓÔÕÚÜÇ ]/gu, " ")
+    .split(/\s+/)
+    .filter(p => p.length >= 5);
+
+  const unicas = Array.from(new Set(limpas)).slice(0, 3);
+  for (const p of unicas){
+    const idx = floor(random(simbolos.length));
+    const novo = new Simbolo(p.slice(0, 14));
+    novo.hue = random(360);
+    simbolos[idx] = novo;
+  }
+}
+
+/* ---------------- voz ---------------- */
+function falarVoz(texto){
+  if (!CONFIG.voz || !window.speechSynthesis) return;
+  try {
+    const u = new SpeechSynthesisUtterance(texto);
+    u.lang  = "pt-BR";
+    u.rate  = 0.92;
+    u.pitch = 0.7;
+    const v = speechSynthesis.getVoices().find(v => /pt/i.test(v.lang));
+    if (v) u.voice = v;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  } catch(_) {}
+}
+
+/* ================================================================
+   INTERAÇÃO
+   ================================================================ */
+function mousePressed(e){
+  const alvo = e && e.target;
+  if (alvo && alvo.tagName !== "CANVAS") return;
+  vrMode = !vrMode;
+}
+
+function keyPressed(){
+  const ae = document.activeElement;
+  if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+
+  if (key === " ") { pausado = !pausado; return; }
+  if (key === "r" || key === "R") { reiniciar(); return; }
+  if (key === "c" || key === "C") {
+    document.getElementById("painel").classList.toggle("oculto"); return;
+  }
+  if (key === "f" || key === "F"){
+    if (ativo){ if (timer) clearTimeout(timer); gerarFala(); }
+    return;
+  }
+}
+
+function reiniciar(){
+  t = 0;
+  campoPulso = 0;
+  bacterias = [];
+  simbolos  = [];
+  for (let i = 0; i < 42; i++) bacterias.push(new Bacteria());
+  for (let i = 0; i < 26; i++) simbolos.push(new Simbolo());
+}
+</script>
+</body>
+</html>
